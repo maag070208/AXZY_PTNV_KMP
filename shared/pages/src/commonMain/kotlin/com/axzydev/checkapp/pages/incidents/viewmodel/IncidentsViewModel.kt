@@ -91,6 +91,7 @@ class IncidentsViewModel(
             when (val result = deleteIncident(id)) {
                 is ApiResult.Success -> {
                     _state.update { it.copy(deleting = false, pendingDeleteId = null, pendingDeleteTitle = null) }
+                    _effects.send(IncidentsEffect.Deleted)
                     load()
                 }
 

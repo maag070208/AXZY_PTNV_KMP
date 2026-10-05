@@ -51,7 +51,7 @@ class DefaultZoneRepository(
         api.put<ZoneDto>("/zones/$id", UpdateZoneRequest(name)).map { it.toModel() }
 
     override suspend fun delete(id: String): ApiResult<Unit> =
-        when (val result = api.delete<ZoneDto>("/zones/$id")) {
+        when (val result = api.delete<Boolean>("/zones/$id")) {
             is ApiResult.Success -> ApiResult.Success(Unit, result.messages)
             is ApiResult.Failure -> result
         }

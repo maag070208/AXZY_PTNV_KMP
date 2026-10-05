@@ -95,7 +95,7 @@ class DefaultIncidentRepository(
     }
 
     override suspend fun delete(id: String): ApiResult<Unit> =
-        when (val result = api.delete<IncidentDto>("/incidents/$id")) {
+        when (val result = api.delete<Boolean>("/incidents/$id")) {
             is ApiResult.Success -> ApiResult.Success(Unit, result.messages)
             is ApiResult.Failure -> result
         }

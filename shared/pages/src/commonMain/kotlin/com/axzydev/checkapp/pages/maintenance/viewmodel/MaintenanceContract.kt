@@ -42,4 +42,5 @@ sealed interface MaintenanceAction {
 sealed interface MaintenanceEffect {
     data class Error(val message: String) : MaintenanceEffect
     data object Resolved : MaintenanceEffect
+    data object Deleted : MaintenanceEffect
 }

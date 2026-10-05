@@ -55,4 +55,6 @@ sealed interface AssignmentsAction {
 sealed interface AssignmentsEffect {
     data class Error(val message: String) : AssignmentsEffect
     data object Created : AssignmentsEffect
+    data object Updated : AssignmentsEffect
+    data object Deleted : AssignmentsEffect
 }

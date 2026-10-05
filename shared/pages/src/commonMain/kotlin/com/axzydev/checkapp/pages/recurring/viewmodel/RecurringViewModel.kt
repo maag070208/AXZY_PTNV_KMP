@@ -5,9 +5,11 @@ import androidx.lifecycle.viewModelScope
 import com.axzydev.checkapp.core.common.result.ApiResult
 import com.axzydev.checkapp.features.crudrecurring.model.DeleteRecurringUseCase
 import com.axzydev.checkapp.features.crudrecurring.model.ListRecurringUseCase
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -18,6 +20,9 @@ class RecurringViewModel(
 
     private val _state = MutableStateFlow(RecurringUiState())
     val state: StateFlow<RecurringUiState> = _state.asStateFlow()
+
+    private val _effects = Channel<RecurringEffect>(Channel.BUFFERED)
+    val effects = _effects.receiveAsFlow()
 
     fun refresh() {
         viewModelScope.launch {
@@ -63,11 +68,14 @@ class RecurringViewModel(
                     _state.update {
                         it.copy(deleting = false, pendingDeleteId = null, pendingDeleteTitle = null)
                     }
+                    _effects.send(RecurringEffect.Deleted)
                     refresh()
                 }
 
-                is ApiResult.Failure -> _state.update {
-                    it.copy(deleting = false, error = result.messages.firstOrNull() ?: "No se pudo eliminar la ruta")
+                is ApiResult.Failure -> {
+                    val message = result.messages.firstOrNull() ?: "No se pudo eliminar la ruta"
+                    _state.update { it.copy(deleting = false, error = message) }
+                    _effects.send(RecurringEffect.Error(message))
                 }
             }
         }

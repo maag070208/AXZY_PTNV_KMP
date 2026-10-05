@@ -51,4 +51,5 @@ sealed interface SchedulesAction {
 sealed interface SchedulesEffect {
     data class Error(val message: String) : SchedulesEffect
     data object Created : SchedulesEffect
+    data object Deleted : SchedulesEffect
 }

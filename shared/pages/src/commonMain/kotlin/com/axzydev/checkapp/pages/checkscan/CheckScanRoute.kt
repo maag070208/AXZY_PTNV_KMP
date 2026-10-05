@@ -5,6 +5,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.axzydev.checkapp.design.components.LocalFeedback
 import com.axzydev.checkapp.pages.checkscan.ui.CheckScanScreen
 import com.axzydev.checkapp.pages.checkscan.viewmodel.CheckScanEffect
 import com.axzydev.checkapp.pages.checkscan.viewmodel.CheckScanViewModel
@@ -19,11 +20,12 @@ fun CheckScanRoute(
     val viewModel: CheckScanViewModel = koinViewModel()
     val state by viewModel.state.collectAsStateWithLifecycle()
 
+    val feedback = LocalFeedback.current
     LaunchedEffect(viewModel) {
         viewModel.effects.collect { effect ->
             when (effect) {
                 is CheckScanEffect.Found -> onLocationSelected(effect.locationId)
-                is CheckScanEffect.NotFound -> Unit
+                is CheckScanEffect.NotFound -> feedback?.error("No se encontró el punto escaneado")
             }
         }
     }

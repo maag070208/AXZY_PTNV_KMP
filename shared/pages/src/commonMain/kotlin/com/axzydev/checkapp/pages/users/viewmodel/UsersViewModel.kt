@@ -177,6 +177,7 @@ class UsersViewModel(
             when (val result = deleteUser(id)) {
                 is ApiResult.Success -> {
                     _state.update { it.copy(deleting = false, pendingDeleteId = null, pendingDeleteName = null) }
+                    _effects.send(UsersEffect.Deleted)
                     load()
                 }
 

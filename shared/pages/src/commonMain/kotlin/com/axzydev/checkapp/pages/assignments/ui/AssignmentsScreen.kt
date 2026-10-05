@@ -29,6 +29,7 @@ import com.axzydev.checkapp.design.components.ITCardFooter
 import com.axzydev.checkapp.design.components.ITConfirmDialog
 import com.axzydev.checkapp.design.components.ITFooterAction
 import com.axzydev.checkapp.design.components.ITFooterDivider
+import com.axzydev.checkapp.design.components.ITFormDialog
 import com.axzydev.checkapp.design.components.ITListItem
 import com.axzydev.checkapp.design.components.ITScreenScaffold
 import com.axzydev.checkapp.design.components.ITSearchField
@@ -100,29 +101,13 @@ fun AssignmentsScreen(
         onBack = onBack,
         actions = {
             ITButton(
-                label = if (state.showForm) "Cancelar" else "Nueva",
+                label = "Nueva",
                 onClick = { onAction(AssignmentsAction.ToggleForm) },
-                outlined = state.showForm,
-                tone = if (state.showForm) Tone.Neutral else Tone.Brand,
+                tone = Tone.Brand,
                 compact = true,
             )
         },
     ) {
-        if (state.showForm) {
-            AssignmentFormCard(
-                guards = state.guards,
-                locations = state.locations,
-                selectedGuardId = state.selectedGuardId,
-                selectedLocationId = state.selectedLocationId,
-                notes = state.notes,
-                creating = state.creating,
-                onGuard = { onAction(AssignmentsAction.SelectGuard(it)) },
-                onLocation = { onAction(AssignmentsAction.SelectLocation(it)) },
-                onNotes = { onAction(AssignmentsAction.Notes(it)) },
-                onSubmit = { onAction(AssignmentsAction.Create) },
-            )
-        }
-
         if (state.items.isNotEmpty()) {
             val pending = state.items.count { it.status.equals("PENDING", ignoreCase = true) }
             val done = state.items.count { it.status.equals("REVIEWED", ignoreCase = true) }
@@ -186,6 +171,37 @@ fun AssignmentsScreen(
         )
     }
 
+    // Alta como pantalla modal.
+    ITFormDialog(
+        isOpen = state.showForm,
+        title = "Nueva asignación",
+        onDismiss = { onAction(AssignmentsAction.ToggleForm) },
+        onConfirm = { onAction(AssignmentsAction.Create) },
+        confirmLabel = "Crear asignación",
+        confirmEnabled = state.selectedGuardId != null && state.selectedLocationId != null && !state.creating,
+        confirmLoading = state.creating,
+    ) {
+        OptionDropdown(
+            label = "Guardia",
+            emptyLabel = "Sin guardia",
+            options = state.guards,
+            selectedId = state.selectedGuardId,
+            onSelect = { onAction(AssignmentsAction.SelectGuard(it)) },
+        )
+        OptionDropdown(
+            label = "Punto de control",
+            emptyLabel = "Sin punto",
+            options = state.locations,
+            selectedId = state.selectedLocationId,
+            onSelect = { onAction(AssignmentsAction.SelectLocation(it)) },
+        )
+        ITTextField(
+            label = "Notas",
+            value = state.notes,
+            onValueChange = { onAction(AssignmentsAction.Notes(it)) },
+        )
+    }
+
     if (state.pendingDeleteId != null) {
         ITConfirmDialog(
             title = "Eliminar asignación",
@@ -236,52 +252,6 @@ private fun AssignmentRow(
             }
         },
     )
-}
-
-/** Formulario de alta. */
-@Composable
-private fun AssignmentFormCard(
-    guards: List<Option>,
-    locations: List<Option>,
-    selectedGuardId: String?,
-    selectedLocationId: String?,
-    notes: String,
-    creating: Boolean,
-    onGuard: (String) -> Unit,
-    onLocation: (String) -> Unit,
-    onNotes: (String) -> Unit,
-    onSubmit: () -> Unit,
-) {
-    ITCard(modifier = Modifier.fillMaxWidth()) {
-        ITText(text = "Nueva asignación", color = AxzyColors.onSurface, style = AxzyType.cardTitle)
-        Spacer(Modifier.height(AxzySpacing.md))
-
-        OptionDropdown(
-            label = "Guardia",
-            emptyLabel = "Sin guardia",
-            options = guards,
-            selectedId = selectedGuardId,
-            onSelect = onGuard,
-        )
-        Spacer(Modifier.height(AxzySpacing.sm))
-        OptionDropdown(
-            label = "Punto de control",
-            emptyLabel = "Sin punto",
-            options = locations,
-            selectedId = selectedLocationId,
-            onSelect = onLocation,
-        )
-        Spacer(Modifier.height(AxzySpacing.sm))
-        ITTextField(label = "Notas", value = notes, onValueChange = onNotes)
-
-        Spacer(Modifier.height(AxzySpacing.lg))
-        ITButton(
-            label = "Crear asignación",
-            onClick = onSubmit,
-            loading = creating,
-            enabled = selectedGuardId != null && selectedLocationId != null && !creating,
-        )
-    }
 }
 
 /** Desplegable genérico, para no repetir el de cliente en cada módulo. */

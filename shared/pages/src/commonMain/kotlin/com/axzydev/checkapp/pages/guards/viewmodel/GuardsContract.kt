@@ -28,3 +28,8 @@ sealed interface GuardsAction {
     data object CancelDelete : GuardsAction
     data object ConfirmDelete : GuardsAction
 }
+
+sealed interface GuardsEffect {
+    data object Deleted : GuardsEffect
+    data class Error(val message: String) : GuardsEffect
+}

@@ -18,6 +18,7 @@ import com.axzydev.checkapp.design.components.ITCardFooter
 import com.axzydev.checkapp.design.components.ITConfirmDialog
 import com.axzydev.checkapp.design.components.ITFooterAction
 import com.axzydev.checkapp.design.components.ITFooterDivider
+import com.axzydev.checkapp.design.components.ITFormDialog
 import com.axzydev.checkapp.design.components.ITListItem
 import com.axzydev.checkapp.design.components.ITScreenScaffold
 import com.axzydev.checkapp.design.components.ITSearchField
@@ -82,23 +83,13 @@ fun ZonesScreen(
         onBack = onBack,
         actions = {
             ITButton(
-                label = if (state.showForm) "Cancelar" else "Nueva",
+                label = "Nueva",
                 onClick = { onAction(ZonesAction.ToggleForm) },
-                outlined = state.showForm,
-                tone = if (state.showForm) Tone.Neutral else Tone.Brand,
+                tone = Tone.Brand,
                 compact = true,
             )
         },
     ) {
-        if (state.showForm) {
-            ZoneFormCard(
-                name = state.name,
-                creating = state.creating,
-                onName = { onAction(ZonesAction.Name(it)) },
-                onSubmit = { onAction(ZonesAction.Create) },
-            )
-        }
-
         if (state.items.isNotEmpty()) {
             val active = state.items.count { it.active }
             Row(horizontalArrangement = Arrangement.spacedBy(AxzySpacing.md)) {
@@ -180,40 +171,38 @@ fun ZonesScreen(
         )
     }
 
-    if (state.editingId != null) {
-        AlertDialog(
-            onDismissRequest = { onAction(ZonesAction.CancelEdit) },
-            containerColor = AxzyColors.surface,
-            shape = AxzyShape.lg,
-            title = {
-                ITText(text = "Editar zona", color = AxzyColors.onSurface, style = AxzyType.cardTitle)
-            },
-            text = {
-                ITTextField(
-                    label = "Nombre *",
-                    value = state.editName,
-                    onValueChange = { onAction(ZonesAction.EditName(it)) },
-                )
-            },
-            confirmButton = {
-                ITButton(
-                    label = "Guardar",
-                    onClick = { onAction(ZonesAction.SaveEdit) },
-                    loading = state.saving,
-                    enabled = !state.saving && state.editName.isNotBlank(),
-                    compact = true,
-                )
-            },
-            dismissButton = {
-                ITButton(
-                    label = "Cancelar",
-                    onClick = { onAction(ZonesAction.CancelEdit) },
-                    outlined = true,
-                    tone = Tone.Neutral,
-                    enabled = !state.saving,
-                    compact = true,
-                )
-            },
+    // Alta como pantalla modal.
+    ITFormDialog(
+        isOpen = state.showForm && state.editingId == null,
+        title = "Nueva zona",
+        onDismiss = { onAction(ZonesAction.ToggleForm) },
+        onConfirm = { onAction(ZonesAction.Create) },
+        confirmLabel = "Crear zona",
+        confirmEnabled = state.name.isNotBlank() && !state.creating,
+        confirmLoading = state.creating,
+    ) {
+        ITTextField(
+            label = "Nombre *",
+            value = state.name,
+            onValueChange = { onAction(ZonesAction.Name(it)) },
+            enabled = !state.creating,
+        )
+    }
+
+    // Edición como pantalla modal.
+    ITFormDialog(
+        isOpen = state.editingId != null,
+        title = "Editar zona",
+        onDismiss = { onAction(ZonesAction.CancelEdit) },
+        onConfirm = { onAction(ZonesAction.SaveEdit) },
+        confirmLabel = "Guardar",
+        confirmEnabled = state.editName.isNotBlank() && !state.saving,
+        confirmLoading = state.saving,
+    ) {
+        ITTextField(
+            label = "Nombre *",
+            value = state.editName,
+            onValueChange = { onAction(ZonesAction.EditName(it)) },
         )
     }
 
@@ -230,26 +219,4 @@ fun ZonesScreen(
     }
 }
 
-/** Formulario de alta. */
-@Composable
-private fun ZoneFormCard(
-    name: String,
-    creating: Boolean,
-    onName: (String) -> Unit,
-    onSubmit: () -> Unit,
-) {
-    ITCard(modifier = Modifier.fillMaxWidth()) {
-        ITText(text = "Nueva zona", color = AxzyColors.onSurface, style = AxzyType.cardTitle)
-        Spacer(Modifier.height(AxzySpacing.md))
 
-        ITTextField(label = "Nombre *", value = name, onValueChange = onName)
-
-        Spacer(Modifier.height(AxzySpacing.lg))
-        ITButton(
-            label = "Crear zona",
-            onClick = onSubmit,
-            loading = creating,
-            enabled = name.isNotBlank() && !creating,
-        )
-    }
-}

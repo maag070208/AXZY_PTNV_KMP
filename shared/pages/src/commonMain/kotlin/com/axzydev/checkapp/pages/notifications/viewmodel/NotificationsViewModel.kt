@@ -6,9 +6,11 @@ import com.axzydev.checkapp.core.common.result.ApiResult
 import com.axzydev.checkapp.features.notifications.model.ListNotificationsUseCase
 import com.axzydev.checkapp.features.notifications.model.MarkAllNotificationsReadUseCase
 import com.axzydev.checkapp.features.notifications.model.MarkNotificationReadUseCase
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -20,6 +22,9 @@ class NotificationsViewModel(
 
     private val _state = MutableStateFlow(NotificationsUiState())
     val state: StateFlow<NotificationsUiState> = _state.asStateFlow()
+
+    private val _effects = Channel<NotificationsEffect>(Channel.BUFFERED)
+    val effects = _effects.receiveAsFlow()
 
     fun refresh() {
         viewModelScope.launch { load() }
@@ -69,10 +74,14 @@ class NotificationsViewModel(
             when (val result = markRead(id)) {
                 is ApiResult.Success -> {
                     _state.update { it.copy(markingId = null) }
+                    _effects.send(NotificationsEffect.MarkedRead)
                     load()
                 }
 
-                is ApiResult.Failure -> _state.update { it.copy(markingId = null, error = result.firstMessage) }
+                is ApiResult.Failure -> {
+                    _state.update { it.copy(markingId = null, error = result.firstMessage) }
+                    _effects.send(NotificationsEffect.Error(result.firstMessage))
+                }
             }
         }
     }
@@ -83,10 +92,14 @@ class NotificationsViewModel(
             when (val result = markAllRead()) {
                 is ApiResult.Success -> {
                     _state.update { it.copy(markingAll = false) }
+                    _effects.send(NotificationsEffect.MarkedAllRead)
                     load()
                 }
 
-                is ApiResult.Failure -> _state.update { it.copy(markingAll = false, error = result.firstMessage) }
+                is ApiResult.Failure -> {
+                    _state.update { it.copy(markingAll = false, error = result.firstMessage) }
+                    _effects.send(NotificationsEffect.Error(result.firstMessage))
+                }
             }
         }
     }

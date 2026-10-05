@@ -70,4 +70,5 @@ sealed interface UsersAction {
 sealed interface UsersEffect {
     data class Error(val message: String) : UsersEffect
     data object Created : UsersEffect
+    data object Deleted : UsersEffect
 }

@@ -18,6 +18,7 @@ import com.axzydev.checkapp.design.components.ITCardFooter
 import com.axzydev.checkapp.design.components.ITConfirmDialog
 import com.axzydev.checkapp.design.components.ITFooterAction
 import com.axzydev.checkapp.design.components.ITFooterDivider
+import com.axzydev.checkapp.design.components.ITFormDialog
 import com.axzydev.checkapp.design.components.ITListItem
 import com.axzydev.checkapp.design.components.ITScreenScaffold
 import com.axzydev.checkapp.design.components.ITSearchField
@@ -83,18 +84,13 @@ fun ScheduledNotificationsScreen(
         onBack = onBack,
         actions = {
             ITButton(
-                label = if (state.showForm) "Cancelar" else "Nuevo",
+                label = "Nuevo",
                 onClick = { onAction(ScheduledAction.ToggleForm) },
-                outlined = state.showForm,
-                tone = if (state.showForm) Tone.Neutral else Tone.Brand,
+                tone = Tone.Brand,
                 compact = true,
             )
         },
     ) {
-        if (state.showForm) {
-            ScheduledFormCard(state = state, onAction = onAction)
-        }
-
         if (state.items.isNotEmpty()) {
             val active = state.items.count { it.active }
             Row(horizontalArrangement = Arrangement.spacedBy(AxzySpacing.md)) {
@@ -145,6 +141,65 @@ fun ScheduledNotificationsScreen(
             compact = true,
             fullWidth = false,
         )
+    }
+
+    // Alta como pantalla modal.
+    ITFormDialog(
+        isOpen = state.showForm,
+        title = "Nuevo aviso programado",
+        onDismiss = { onAction(ScheduledAction.ToggleForm) },
+        onConfirm = { onAction(ScheduledAction.Create) },
+        confirmLabel = "Crear aviso",
+        confirmEnabled = state.message.isNotBlank() && !state.creating,
+        confirmLoading = state.creating,
+    ) {
+        ITTextField(
+            label = "Título",
+            value = state.title,
+            onValueChange = { onAction(ScheduledAction.Title(it)) },
+        )
+        ITTextField(
+            label = "Mensaje *",
+            value = state.message,
+            onValueChange = { onAction(ScheduledAction.Message(it)) },
+            singleLine = false,
+        )
+
+        ITText(text = "Frecuencia", color = AxzyColors.onSurfaceVariant, style = AxzyType.labelSmall)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(AxzySpacing.sm),
+        ) {
+            listOf("ONCE" to "Una vez", "DAILY" to "Diario", "WEEKLY" to "Semanal").forEach { (value, label) ->
+                ITTouchableOpacity(
+                    onClick = { onAction(ScheduledAction.Frequency(value)) },
+                    modifier = Modifier.weight(1f),
+                    scaleTo = 0.95f,
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().height(44.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                    ) {
+                        ITBadge(
+                            text = label,
+                            tone = if (state.frequency == value) Tone.Brand else Tone.Neutral,
+                            dot = state.frequency == value,
+                        )
+                    }
+                }
+            }
+        }
+
+        if (state.frequency != "ONCE") {
+            ITTextField(
+                label = "Hora del día (HH:mm)",
+                value = state.timeOfDay,
+                onValueChange = { onAction(ScheduledAction.TimeOfDay(it)) },
+                placeholder = "09:00",
+                numeric = true,
+            )
+        }
     }
 
     if (state.pendingDeleteId != null) {
@@ -199,73 +254,4 @@ private fun ScheduledRow(
     )
 }
 
-/** Formulario de alta. */
-@Composable
-private fun ScheduledFormCard(
-    state: ScheduledUiState,
-    onAction: (ScheduledAction) -> Unit,
-) {
-    ITCard(modifier = Modifier.fillMaxWidth()) {
-        ITText(text = "Nuevo aviso programado", color = AxzyColors.onSurface, style = AxzyType.cardTitle)
-        Spacer(Modifier.height(AxzySpacing.md))
 
-        ITTextField(
-            label = "Título",
-            value = state.title,
-            onValueChange = { onAction(ScheduledAction.Title(it)) },
-        )
-        Spacer(Modifier.height(AxzySpacing.sm))
-        ITTextField(
-            label = "Mensaje *",
-            value = state.message,
-            onValueChange = { onAction(ScheduledAction.Message(it)) },
-            singleLine = false,
-        )
-        Spacer(Modifier.height(AxzySpacing.sm))
-
-        // La frecuencia se elige con pastillas: son pocas y se ven todas.
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(AxzySpacing.sm),
-        ) {
-            listOf("ONCE" to "Una vez", "DAILY" to "Diario", "WEEKLY" to "Semanal").forEach { (value, label) ->
-                ITTouchableOpacity(
-                    onClick = { onAction(ScheduledAction.Frequency(value)) },
-                    modifier = Modifier.weight(1f),
-                    scaleTo = 0.95f,
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().height(44.dp),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-                    ) {
-                        ITBadge(
-                            text = label,
-                            tone = if (state.frequency == value) Tone.Brand else Tone.Neutral,
-                            dot = state.frequency == value,
-                        )
-                    }
-                }
-            }
-        }
-
-        if (state.frequency != "ONCE") {
-            Spacer(Modifier.height(AxzySpacing.sm))
-            ITTextField(
-                label = "Hora del día (HH:mm)",
-                value = state.timeOfDay,
-                onValueChange = { onAction(ScheduledAction.TimeOfDay(it)) },
-                placeholder = "09:00",
-                numeric = true,
-            )
-        }
-
-        Spacer(Modifier.height(AxzySpacing.lg))
-        ITButton(
-            label = "Crear aviso",
-            onClick = { onAction(ScheduledAction.Create) },
-            loading = state.creating,
-            enabled = !state.creating && state.message.isNotBlank(),
-        )
-    }
-}

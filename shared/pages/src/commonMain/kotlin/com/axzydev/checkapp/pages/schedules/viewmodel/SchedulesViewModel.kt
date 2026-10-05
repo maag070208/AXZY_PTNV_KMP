@@ -146,6 +146,7 @@ class SchedulesViewModel(
             when (val result = deleteSchedule(id)) {
                 is ApiResult.Success -> {
                     _state.update { it.copy(deleting = false, pendingDeleteId = null, pendingDeleteName = null) }
+                    _effects.send(SchedulesEffect.Deleted)
                     load()
                 }
 

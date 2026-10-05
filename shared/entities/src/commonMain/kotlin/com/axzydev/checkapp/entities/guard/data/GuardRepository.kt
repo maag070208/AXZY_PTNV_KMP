@@ -47,7 +47,7 @@ class DefaultGuardRepository(
         database.userQueries.selectUserById(id).executeAsOneOrNull()?.toModel()
 
     override suspend fun delete(id: String): ApiResult<Unit> =
-        when (val result = api.delete<GuardUserDto>("/users/$id")) {
+        when (val result = api.delete<Boolean>("/users/$id")) {
             is ApiResult.Success -> ApiResult.Success(Unit, result.messages)
             is ApiResult.Failure -> result
         }

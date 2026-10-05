@@ -96,7 +96,7 @@ class DefaultMaintenanceRepository(
     }
 
     override suspend fun delete(id: String): ApiResult<Unit> =
-        when (val result = api.delete<MaintenanceDto>("/maintenance/$id")) {
+        when (val result = api.delete<Boolean>("/maintenance/$id")) {
             is ApiResult.Success -> ApiResult.Success(Unit, result.messages)
             is ApiResult.Failure -> result
         }

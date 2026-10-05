@@ -132,6 +132,7 @@ class ZonesViewModel(
             when (val result = deleteZone(id)) {
                 is ApiResult.Success -> {
                     _state.update { it.copy(deleting = false, pendingDeleteId = null, pendingDeleteName = null) }
+                    _effects.send(ZonesEffect.Deleted)
                     refreshInternal()
                 }
 

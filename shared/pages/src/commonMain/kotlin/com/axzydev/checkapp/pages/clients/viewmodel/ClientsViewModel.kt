@@ -177,6 +177,7 @@ class ClientsViewModel(
             when (val result = deleteClient(id)) {
                 is ApiResult.Success -> {
                     _state.update { it.copy(deleting = false, pendingDeleteId = null, pendingDeleteName = null) }
+                    _effects.send(ClientsEffect.Deleted)
                     load()
                 }
 

@@ -120,6 +120,7 @@ class AssignmentsViewModel(
             when (val result = updateAssignmentStatus(id, next)) {
                 is ApiResult.Success -> {
                     _state.update { it.copy(statusUpdatingId = null) }
+                    _effects.send(AssignmentsEffect.Updated)
                     load()
                 }
 
@@ -135,6 +136,7 @@ class AssignmentsViewModel(
             when (val result = deleteAssignment(id)) {
                 is ApiResult.Success -> {
                     _state.update { it.copy(deleting = false, pendingDeleteId = null, pendingDeleteName = null) }
+                    _effects.send(AssignmentsEffect.Deleted)
                     load()
                 }
 

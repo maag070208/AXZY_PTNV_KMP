@@ -64,7 +64,7 @@ class DefaultAssignmentRepository(
         api.patch<AssignmentDto>("/assignments/$id/status", UpdateStatusRequest(status)).map { it.toModel() }
 
     override suspend fun delete(id: String): ApiResult<Unit> =
-        when (val result = api.delete<AssignmentDto>("/assignments/$id")) {
+        when (val result = api.delete<Boolean>("/assignments/$id")) {
             is ApiResult.Success -> ApiResult.Success(Unit, result.messages)
             is ApiResult.Failure -> result
         }

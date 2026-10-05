@@ -42,4 +42,5 @@ sealed interface IncidentsAction {
 sealed interface IncidentsEffect {
     data class Error(val message: String) : IncidentsEffect
     data object Resolved : IncidentsEffect
+    data object Deleted : IncidentsEffect
 }

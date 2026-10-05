@@ -55,3 +55,10 @@ sealed interface ScheduledAction {
     data object CancelDelete : ScheduledAction
     data object ConfirmDelete : ScheduledAction
 }
+
+sealed interface ScheduledEffect {
+    data object Created : ScheduledEffect
+    data object Toggled : ScheduledEffect
+    data object Deleted : ScheduledEffect
+    data class Error(val message: String) : ScheduledEffect
+}

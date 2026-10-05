@@ -5,6 +5,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.axzydev.checkapp.design.components.LocalFeedback
 import com.axzydev.checkapp.pages.sync.ui.SyncScreen
 import com.axzydev.checkapp.pages.sync.viewmodel.SyncEffect
 import com.axzydev.checkapp.pages.sync.viewmodel.SyncViewModel
@@ -18,11 +19,15 @@ fun SyncRoute(
     val viewModel: SyncViewModel = koinViewModel()
     val state by viewModel.state.collectAsStateWithLifecycle()
 
+    val feedback = LocalFeedback.current
     LaunchedEffect(viewModel) { viewModel.start() }
     LaunchedEffect(viewModel) {
         viewModel.effects.collect { effect ->
             when (effect) {
-                SyncEffect.Completed -> onDone()
+                SyncEffect.Completed -> {
+                    feedback?.success("Sincronización completa")
+                    onDone()
+                }
             }
         }
     }

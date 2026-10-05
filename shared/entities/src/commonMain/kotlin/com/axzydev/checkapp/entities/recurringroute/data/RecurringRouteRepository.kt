@@ -131,7 +131,7 @@ class DefaultRecurringRouteRepository(
         api.put<RecurringConfigDto>("/recurring/$id", draft.toRequest()).map { it.toModel() }
 
     override suspend fun delete(id: String): ApiResult<Unit> =
-        when (val result = api.delete<RecurringConfigDto>("/recurring/$id")) {
+        when (val result = api.delete<Boolean>("/recurring/$id")) {
             is ApiResult.Success -> ApiResult.Success(Unit, result.messages)
             is ApiResult.Failure -> result
         }

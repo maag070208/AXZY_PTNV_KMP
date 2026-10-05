@@ -8,9 +8,11 @@ import com.axzydev.checkapp.features.notifications.model.CreateScheduledNotifica
 import com.axzydev.checkapp.features.notifications.model.DeleteScheduledNotificationUseCase
 import com.axzydev.checkapp.features.notifications.model.ListScheduledNotificationsUseCase
 import com.axzydev.checkapp.features.notifications.model.ToggleScheduledNotificationUseCase
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -24,6 +26,9 @@ class ScheduledNotificationsViewModel(
 
     private val _state = MutableStateFlow(ScheduledUiState())
     val state: StateFlow<ScheduledUiState> = _state.asStateFlow()
+
+    private val _effects = Channel<ScheduledEffect>(Channel.BUFFERED)
+    val effects = _effects.receiveAsFlow()
 
     fun refresh() {
         viewModelScope.launch { load() }
@@ -104,10 +109,14 @@ class ScheduledNotificationsViewModel(
                     _state.update {
                         it.copy(creating = false, showForm = false, message = "", title = "", timeOfDay = "", scheduledAt = "")
                     }
+                    _effects.send(ScheduledEffect.Created)
                     load()
                 }
 
-                is ApiResult.Failure -> _state.update { it.copy(creating = false, error = result.firstMessage) }
+                is ApiResult.Failure -> {
+                    _state.update { it.copy(creating = false, error = result.firstMessage) }
+                    _effects.send(ScheduledEffect.Error(result.firstMessage))
+                }
             }
         }
     }
@@ -118,10 +127,14 @@ class ScheduledNotificationsViewModel(
             when (val result = toggleScheduled(id, !active)) {
                 is ApiResult.Success -> {
                     _state.update { it.copy(togglingId = null) }
+                    _effects.send(ScheduledEffect.Toggled)
                     load()
                 }
 
-                is ApiResult.Failure -> _state.update { it.copy(togglingId = null, error = result.firstMessage) }
+                is ApiResult.Failure -> {
+                    _state.update { it.copy(togglingId = null, error = result.firstMessage) }
+                    _effects.send(ScheduledEffect.Error(result.firstMessage))
+                }
             }
         }
     }
@@ -133,10 +146,14 @@ class ScheduledNotificationsViewModel(
             when (val result = deleteScheduled(id)) {
                 is ApiResult.Success -> {
                     _state.update { it.copy(deleting = false, pendingDeleteId = null, pendingDeleteTitle = null) }
+                    _effects.send(ScheduledEffect.Deleted)
                     load()
                 }
 
-                is ApiResult.Failure -> _state.update { it.copy(deleting = false, error = result.firstMessage) }
+                is ApiResult.Failure -> {
+                    _state.update { it.copy(deleting = false, error = result.firstMessage) }
+                    _effects.send(ScheduledEffect.Error(result.firstMessage))
+                }
             }
         }
     }

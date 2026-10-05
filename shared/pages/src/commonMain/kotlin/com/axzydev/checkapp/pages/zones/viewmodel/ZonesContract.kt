@@ -42,4 +42,5 @@ sealed interface ZonesAction {
 sealed interface ZonesEffect {
     data class Error(val message: String) : ZonesEffect
     data object Created : ZonesEffect
+    data object Deleted : ZonesEffect
 }

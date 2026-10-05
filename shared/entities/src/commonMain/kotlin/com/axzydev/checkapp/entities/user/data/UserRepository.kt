@@ -98,7 +98,7 @@ class DefaultUserRepository(
         }
 
     override suspend fun delete(id: String): ApiResult<Unit> =
-        when (val result = api.delete<UserDto>("/users/$id")) {
+        when (val result = api.delete<Boolean>("/users/$id")) {
             is ApiResult.Success -> ApiResult.Success(Unit, result.messages)
             is ApiResult.Failure -> result
         }

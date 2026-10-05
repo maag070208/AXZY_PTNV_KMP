@@ -27,3 +27,8 @@ sealed interface RecurringAction {
     data object CancelDelete : RecurringAction
     data object ConfirmDelete : RecurringAction
 }
+
+sealed interface RecurringEffect {
+    data object Deleted : RecurringEffect
+    data class Error(val message: String) : RecurringEffect
+}

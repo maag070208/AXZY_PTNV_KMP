@@ -89,7 +89,7 @@ class DefaultClientRepository(
         ).map { it.toModel() }
 
     override suspend fun delete(id: String): ApiResult<Unit> =
-        when (val result = api.delete<ClientDto>("/clients/$id")) {
+        when (val result = api.delete<Boolean>("/clients/$id")) {
             is ApiResult.Success -> ApiResult.Success(Unit, result.messages)
             is ApiResult.Failure -> result
         }

@@ -67,4 +67,5 @@ sealed interface ClientsAction {
 sealed interface ClientsEffect {
     data class Error(val message: String) : ClientsEffect
     data object Created : ClientsEffect
+    data object Deleted : ClientsEffect
 }

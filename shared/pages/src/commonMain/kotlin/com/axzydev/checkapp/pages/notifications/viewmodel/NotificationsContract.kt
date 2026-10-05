@@ -40,3 +40,9 @@ sealed interface NotificationsAction {
     data class MarkRead(val id: String) : NotificationsAction
     data object MarkAllRead : NotificationsAction
 }
+
+sealed interface NotificationsEffect {
+    data object MarkedRead : NotificationsEffect
+    data object MarkedAllRead : NotificationsEffect
+    data class Error(val message: String) : NotificationsEffect
+}

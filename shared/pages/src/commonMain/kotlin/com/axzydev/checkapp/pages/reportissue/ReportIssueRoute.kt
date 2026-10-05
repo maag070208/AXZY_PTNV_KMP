@@ -5,6 +5,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.axzydev.checkapp.design.components.LocalFeedback
 import com.axzydev.checkapp.pages.reportissue.ui.ReportIssueScreen
 import com.axzydev.checkapp.pages.reportissue.viewmodel.ReportIssueAction
 import com.axzydev.checkapp.pages.reportissue.viewmodel.ReportIssueEffect
@@ -25,12 +26,16 @@ fun ReportIssueRoute(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val mediaCapture = rememberMediaCapture()
 
+    val feedback = LocalFeedback.current
     LaunchedEffect(viewModel, kind) { viewModel.load(kind) }
     LaunchedEffect(viewModel) {
         viewModel.effects.collect { effect ->
             when (effect) {
-                ReportIssueEffect.Saved -> onSaved()
-                is ReportIssueEffect.Error -> Unit
+                ReportIssueEffect.Saved -> {
+                    feedback?.success("Reporte enviado")
+                    onSaved()
+                }
+                is ReportIssueEffect.Error -> feedback?.error(effect.message)
             }
         }
     }

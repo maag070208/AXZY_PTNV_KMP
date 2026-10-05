@@ -82,7 +82,7 @@ class DefaultScheduledNotificationRepository(private val api: ApiClient) : Sched
         api.put<ScheduledNotificationDto>("/scheduled-notifications/$id", UpdateActiveRequest(active)).map { it.toModel() }
 
     override suspend fun delete(id: String): ApiResult<Unit> =
-        when (val result = api.delete<ScheduledNotificationDto>("/scheduled-notifications/$id")) {
+        when (val result = api.delete<Boolean>("/scheduled-notifications/$id")) {
             is ApiResult.Success -> ApiResult.Success(Unit, result.messages)
             is ApiResult.Failure -> result
         }

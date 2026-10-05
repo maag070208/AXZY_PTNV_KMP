@@ -5,7 +5,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.axzydev.checkapp.design.components.LocalFeedback
 import com.axzydev.checkapp.pages.guarddashboard.ui.GuardDashboardScreen
+import com.axzydev.checkapp.pages.guarddashboard.viewmodel.GuardDashboardEffect
 import com.axzydev.checkapp.pages.guarddashboard.viewmodel.GuardDashboardViewModel
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -27,7 +29,15 @@ fun GuardDashboardRoute(
     val state by viewModel.state.collectAsStateWithLifecycle()
 
     LaunchedEffect(viewModel) { viewModel.refresh() }
-    LaunchedEffect(viewModel) { viewModel.effects.collect { /* errores reflejados en estado/UI */ } }
+    val feedback = LocalFeedback.current
+    LaunchedEffect(viewModel) {
+        viewModel.effects.collect { effect ->
+            when (effect) {
+                GuardDashboardEffect.RoundFinished -> feedback?.success("Ruta finalizada")
+                is GuardDashboardEffect.Error -> feedback?.error(effect.message)
+            }
+        }
+    }
 
     GuardDashboardScreen(
         state = state,

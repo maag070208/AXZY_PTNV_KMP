@@ -36,10 +36,8 @@ import com.axzydev.checkapp.design.components.ITConfirmDialog
 import com.axzydev.checkapp.design.components.ITFooterAction
 import com.axzydev.checkapp.design.components.ITFooterDivider
 import com.axzydev.checkapp.design.components.ITFormDialog
-import com.axzydev.checkapp.design.components.ITListItem
 import com.axzydev.checkapp.design.components.ITScreenScaffold
 import com.axzydev.checkapp.design.components.ITSearchField
-import com.axzydev.checkapp.design.components.ITStatCard
 import com.axzydev.checkapp.design.components.ITText
 import com.axzydev.checkapp.design.components.ITTextField
 import com.axzydev.checkapp.design.components.ITTouchableOpacity
@@ -135,10 +133,6 @@ fun UsersScreen(
             )
         },
     ) {
-        if (state.items.isNotEmpty()) {
-            UsersOverview(items = state.items)
-        }
-
         ITSearchField(
             value = state.query,
             onValueChange = { onAction(UsersAction.Search(it)) },
@@ -159,32 +153,11 @@ fun UsersScreen(
         }
 
         state.visibleItems.forEach { user ->
-            val fullName = listOfNotNull(user.name, user.lastName).joinToString(" ")
-
-            ITListItem(
-                title = fullName,
-                subtitle = "@${user.username}",
-                avatarInitial = user.name,
-                avatarStatus = toneForRole(user.roleName),
-                badge = user.roleName?.let { role ->
-                    { ITBadge(text = role, tone = toneForRole(role)) }
-                },
-                onClick = { onAction(UsersAction.StartEdit(user.id)) },
-                footer = {
-                    ITCardFooter {
-                        ITFooterAction(
-                            label = "Editar",
-                            onClick = { onAction(UsersAction.StartEdit(user.id)) },
-                        )
-                        ITFooterDivider()
-                        ITFooterAction(
-                            label = "Eliminar",
-                            onClick = { onAction(UsersAction.RequestDelete(user.id)) },
-                            tone = Tone.Danger,
-                            enabled = !state.deleting,
-                        )
-                    }
-                },
+            UserCard(
+                user = user,
+                deleting = state.deleting,
+                onEdit = { onAction(UsersAction.StartEdit(user.id)) },
+                onDelete = { onAction(UsersAction.RequestDelete(user.id)) },
             )
         }
 
@@ -321,45 +294,83 @@ fun UsersScreen(
 
 
 /**
- * Resumen del directorio: total de cuentas, número de roles y el desglose por
- * rol. Da contexto antes de la lista sin tener que contar a ojo.
+ * Tarjeta de usuario.
+ *
+ * El avatar se tiñe con el color del rol (`toneForRole`), así de un vistazo se
+ * distingue un administrador de un guardia sin leer la insignia. Avatar a color
+ * + nombre + usuario + insignia de rol, y el pie con las acciones.
  */
 @Composable
-private fun UsersOverview(items: List<UserItemUi>) {
-    val byRole = items
-        .groupBy { it.roleName?.takeIf { it.isNotBlank() } ?: "Sin rol" }
-        .mapValues { it.value.size }
+private fun UserCard(
+    user: UserItemUi,
+    deleting: Boolean,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    val tone = toneForRole(user.roleName)
+    val colors = tone.palette
+    val fullName = listOfNotNull(user.name, user.lastName).joinToString(" ").ifBlank { user.username }
+    val initials = listOfNotNull(user.name, user.lastName)
+        .mapNotNull { it.trim().firstOrNull()?.uppercaseChar() }
+        .take(2)
+        .joinToString("")
+        .ifBlank { "?" }
 
-    Column(verticalArrangement = Arrangement.spacedBy(AxzySpacing.md)) {
-        Row(horizontalArrangement = Arrangement.spacedBy(AxzySpacing.md)) {
-            ITStatCard(
-                label = "Cuentas",
-                value = items.size.toString(),
-                icon = ITIcons.Person,
-                tone = Tone.Brand,
+    ITCard(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(AxzySpacing.lg),
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .background(colors.solid, AxzyShape.lg),
+                contentAlignment = Alignment.Center,
+            ) {
+                ITText(
+                    text = initials,
+                    color = colors.onSolid,
+                    style = AxzyType.avatarInitial,
+                )
+            }
+
+            Column(
                 modifier = Modifier.weight(1f),
-            )
-            ITStatCard(
-                label = "Roles",
-                value = byRole.size.toString(),
-                icon = ITIcons.ShieldCheck,
-                tone = Tone.Info,
-                modifier = Modifier.weight(1f),
-            )
+                verticalArrangement = Arrangement.spacedBy(AxzySpacing.xs),
+            ) {
+                ITText(
+                    text = fullName,
+                    color = AxzyColors.onSurface,
+                    style = AxzyType.itemTitle,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                ITText(
+                    text = "@${user.username}",
+                    color = AxzyColors.onSurfaceVariant,
+                    style = AxzyType.itemMeta,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+
+            user.roleName?.let { role ->
+                ITBadge(text = role, tone = tone, dot = true)
+            }
         }
 
-        byRole.entries.sortedByDescending { it.value }.chunked(2).forEach { row ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(AxzySpacing.sm),
-            ) {
-                row.forEach { (role, count) ->
-                    Box(modifier = Modifier.weight(1f)) {
-                        ITBadge(text = "$role · $count", tone = toneForRole(role))
-                    }
-                }
-                repeat(2 - row.size) { Spacer(Modifier.weight(1f)) }
-            }
+        Spacer(Modifier.height(AxzySpacing.md))
+
+        ITCardFooter {
+            ITFooterAction(label = "Editar", onClick = onEdit)
+            ITFooterDivider()
+            ITFooterAction(
+                label = "Eliminar",
+                onClick = onDelete,
+                tone = Tone.Danger,
+                enabled = !deleting,
+            )
         }
     }
 }

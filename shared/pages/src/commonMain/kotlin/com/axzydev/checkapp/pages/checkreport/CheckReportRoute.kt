@@ -5,6 +5,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.axzydev.checkapp.design.components.LocalFeedback
 import com.axzydev.checkapp.pages.checkreport.ui.CheckReportScreen
 import com.axzydev.checkapp.pages.checkreport.viewmodel.CheckReportAction
 import com.axzydev.checkapp.pages.checkreport.viewmodel.CheckReportEffect
@@ -25,12 +26,16 @@ fun CheckReportRoute(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val mediaCapture = rememberMediaCapture()
 
+    val feedback = LocalFeedback.current
     LaunchedEffect(viewModel, roundId, locationId) { viewModel.load(roundId, locationId) }
     LaunchedEffect(viewModel) {
         viewModel.effects.collect { effect ->
             when (effect) {
-                CheckReportEffect.Submitted -> onSubmitted()
-                is CheckReportEffect.Error -> Unit
+                CheckReportEffect.Submitted -> {
+                    feedback?.success("Reporte enviado")
+                    onSubmitted()
+                }
+                is CheckReportEffect.Error -> feedback?.error(effect.message)
             }
         }
     }

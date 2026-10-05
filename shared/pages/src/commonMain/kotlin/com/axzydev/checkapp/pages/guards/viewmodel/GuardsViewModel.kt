@@ -5,9 +5,11 @@ import androidx.lifecycle.viewModelScope
 import com.axzydev.checkapp.core.common.result.ApiResult
 import com.axzydev.checkapp.features.guardlist.model.DeleteGuardUseCase
 import com.axzydev.checkapp.features.guardlist.model.ListGuardsUseCase
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -18,6 +20,9 @@ class GuardsViewModel(
 
     private val _state = MutableStateFlow(GuardsUiState())
     val state: StateFlow<GuardsUiState> = _state.asStateFlow()
+
+    private val _effects = Channel<GuardsEffect>(Channel.BUFFERED)
+    val effects = _effects.receiveAsFlow()
 
     fun refresh() {
         viewModelScope.launch { load() }
@@ -58,10 +63,14 @@ class GuardsViewModel(
             when (val result = deleteGuard(id)) {
                 is ApiResult.Success -> {
                     _state.update { it.copy(deleting = false, pendingDeleteId = null, pendingDeleteName = null) }
+                    _effects.send(GuardsEffect.Deleted)
                     load()
                 }
 
-                is ApiResult.Failure -> _state.update { it.copy(deleting = false, error = result.firstMessage) }
+                is ApiResult.Failure -> {
+                    _state.update { it.copy(deleting = false, error = result.firstMessage) }
+                    _effects.send(GuardsEffect.Error(result.firstMessage))
+                }
             }
         }
     }

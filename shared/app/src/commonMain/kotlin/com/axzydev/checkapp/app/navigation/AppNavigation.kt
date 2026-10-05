@@ -38,7 +38,11 @@ import androidx.navigation.toRoute
 import com.axzydev.checkapp.app.di.AppVersionProviderImpl
 import com.axzydev.checkapp.design.components.BrandMark
 import com.axzydev.checkapp.design.components.BrandWordmark
+import com.axzydev.checkapp.design.components.FeedbackController
 import com.axzydev.checkapp.design.components.ITAvatar
+import com.axzydev.checkapp.design.components.ITFeedbackHost
+import com.axzydev.checkapp.design.components.ITSkeletonAppShell
+import com.axzydev.checkapp.design.components.LocalFeedback
 import com.axzydev.checkapp.design.components.ITBadge
 import com.axzydev.checkapp.design.components.ITBottomBar
 import com.axzydev.checkapp.design.components.LocalOnOpenDrawer
@@ -104,11 +108,8 @@ fun AppNavigation() {
 
     val start = startDestination
     if (start == null) {
-        Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
-            }
-        }
+        // Carga inicial: esqueleto con la forma de la app, no un spinner.
+        ITSkeletonAppShell()
     } else {
         AppNavHost(startDestination = start, sessionRepository = sessionRepository)
     }
@@ -129,8 +130,10 @@ private fun AppNavHost(
     val logout: () -> Unit = {
         scope.launch {
             sessionRepository.logout()
+            // `popUpTo(0)` limpia toda la pila: al salir no debe quedar ninguna
+            // pantalla con sesión detrás del login.
             navController.navigate(LoginDestination) {
-                popUpTo(navController.graph.id) { inclusive = true }
+                popUpTo(0) { inclusive = true }
                 launchSingleTop = true
             }
         }
@@ -143,17 +146,26 @@ private fun AppNavHost(
     val onAdminHome = currentRoute?.hasRoute<AdminHomeDestination>() == true
     val onGuardHome = currentRoute?.hasRoute<GuardHomeDestination>() == true
 
+    // Un solo controlador de feedback para toda la app.
+    val feedback = remember { FeedbackController() }
+
     ITNavigationDrawer(
         items = buildMenu(navController),
         isOpen = menuOpen,
         onClose = { menuOpen = false },
         header = { DrawerHeader(userName = userName, roleLabel = roleLabel) },
-        footer = { DrawerFooter(onLogout = logout) },
+        // Cerrar el menú antes de salir: si no, el login queda detrás del drawer
+        // y parece que el botón no hizo nada.
+        footer = { DrawerFooter(onLogout = { menuOpen = false; logout() }) },
     ) {
         val openDrawer: () -> Unit = { menuOpen = true }
-        CompositionLocalProvider(LocalOnOpenDrawer provides openDrawer) {
+        CompositionLocalProvider(
+            LocalOnOpenDrawer provides openDrawer,
+            LocalFeedback provides feedback,
+        ) {
         Column(modifier = Modifier.fillMaxSize()) {
             Box(modifier = Modifier.weight(1f)) {
+    ITFeedbackHost(controller = feedback) {
     NavHost(navController = navController, startDestination = startDestination) {
         composable<LoginDestination> {
             LoginRoute(
@@ -346,6 +358,7 @@ private fun AppNavHost(
         composable<SchedulesDestination> {
             SchedulesRoute(onBack = { navController.popBackStack() })
         }
+    }
     }
             }
 

@@ -57,4 +57,5 @@ sealed interface LocationsAction {
 sealed interface LocationsEffect {
     data class Error(val message: String) : LocationsEffect
     data object Created : LocationsEffect
+    data object Deleted : LocationsEffect
 }
