@@ -1,0 +1,11 @@
+-- Consultas de la entidad UniformCheck.
+
+insertUniformCheck:
+INSERT INTO uniform_checks (id, guard_id, client_id, schedule_id, shift_date, evaluated_by_id, items, score, compliant, notes, created_at, updated_at, _status)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+selectUniformChecks:
+SELECT * FROM uniform_checks ORDER BY created_at DESC;
+
+selectUniformCheckById:
+SELECT * FROM uniform_checks WHERE id = ?;

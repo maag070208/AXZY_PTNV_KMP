@@ -1,0 +1,16 @@
+-- Consultas de la entidad User.
+
+selectAllUsers:
+SELECT * FROM users ORDER BY name;
+
+selectActiveUsers:
+SELECT * FROM users WHERE active = 1 ORDER BY name;
+
+selectUserById:
+SELECT * FROM users WHERE id = ?;
+
+selectGuards:
+SELECT u.* FROM users u
+JOIN roles r ON r.id = u.role_id
+WHERE r.name = 'GUARD'
+ORDER BY u.name;

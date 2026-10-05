@@ -1,0 +1,7 @@
+-- Consultas de la entidad Schedule.
+
+selectAllSchedules:
+SELECT * FROM schedules ORDER BY start_time;
+
+selectActiveSchedules:
+SELECT * FROM schedules WHERE active = 1 ORDER BY start_time;

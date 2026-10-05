@@ -1,0 +1,10 @@
+-- Consultas de la entidad Client.
+
+selectAllClients:
+SELECT * FROM clients ORDER BY name;
+
+selectActiveClients:
+SELECT * FROM clients WHERE active = 1 ORDER BY name;
+
+selectClientById:
+SELECT * FROM clients WHERE id = ?;

@@ -1,0 +1,20 @@
+-- Consultas de la entidad Round.
+
+insertRound:
+INSERT INTO rounds (id, guard_id, client_id, start_time, end_time, status, recurring_configuration_id, created_at, updated_at, _status)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+finishRound:
+UPDATE rounds SET end_time = ?, status = 'COMPLETED', updated_at = ?, _status = 'updated' WHERE id = ?;
+
+selectRoundById:
+SELECT * FROM rounds WHERE id = ?;
+
+selectInProgressByGuard:
+SELECT * FROM rounds WHERE guard_id = ? AND status = 'IN_PROGRESS' ORDER BY start_time DESC;
+
+selectInProgress:
+SELECT * FROM rounds WHERE status = 'IN_PROGRESS' ORDER BY start_time DESC;
+
+selectAllRounds:
+SELECT * FROM rounds ORDER BY start_time DESC;

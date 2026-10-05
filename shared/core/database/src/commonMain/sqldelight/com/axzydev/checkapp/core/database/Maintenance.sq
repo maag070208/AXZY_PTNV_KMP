@@ -1,0 +1,17 @@
+-- Consultas de la entidad Maintenance.
+
+insertMaintenance:
+INSERT INTO maintenances (id, guard_id, title, category_id, type_id, description, media, latitude, longitude, status, client_id, created_at, updated_at, _status)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+selectAllMaintenances:
+SELECT * FROM maintenances ORDER BY created_at DESC;
+
+selectMaintenancesByGuard:
+SELECT * FROM maintenances WHERE guard_id = ? ORDER BY created_at DESC;
+
+selectPendingMaintenances:
+SELECT * FROM maintenances WHERE status = 'PENDING' ORDER BY created_at DESC;
+
+selectMaintenanceById:
+SELECT * FROM maintenances WHERE id = ?;

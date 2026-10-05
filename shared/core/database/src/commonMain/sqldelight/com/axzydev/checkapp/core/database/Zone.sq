@@ -1,0 +1,10 @@
+-- Consultas de la entidad Zone.
+
+selectActiveZones:
+SELECT * FROM zones WHERE active = 1 ORDER BY name;
+
+selectZonesByClient:
+SELECT * FROM zones WHERE client_id = ? ORDER BY name;
+
+selectZoneById:
+SELECT * FROM zones WHERE id = ?;

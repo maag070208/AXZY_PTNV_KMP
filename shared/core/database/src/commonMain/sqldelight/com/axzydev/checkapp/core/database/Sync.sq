@@ -1,0 +1,38 @@
+-- Consultas de sincronización (Anexo B).
+-- DEVICE_WRITABLE_TABLES = rounds, kardex, incidents, maintenances, shift_handovers, uniform_checks
+
+countUnsyncedRounds:
+SELECT count(*) FROM rounds WHERE _status != 'synced';
+
+countUnsyncedKardex:
+SELECT count(*) FROM kardex WHERE _status != 'synced';
+
+countUnsyncedIncidents:
+SELECT count(*) FROM incidents WHERE _status != 'synced';
+
+countUnsyncedMaintenances:
+SELECT count(*) FROM maintenances WHERE _status != 'synced';
+
+countUnsyncedShiftHandovers:
+SELECT count(*) FROM shift_handovers WHERE _status != 'synced';
+
+countUnsyncedUniformChecks:
+SELECT count(*) FROM uniform_checks WHERE _status != 'synced';
+
+markRoundSynced:
+UPDATE rounds SET _status = 'synced' WHERE id = ?;
+
+markKardexSynced:
+UPDATE kardex SET _status = 'synced' WHERE id = ?;
+
+markIncidentSynced:
+UPDATE incidents SET _status = 'synced' WHERE id = ?;
+
+markMaintenanceSynced:
+UPDATE maintenances SET _status = 'synced' WHERE id = ?;
+
+markShiftHandoverSynced:
+UPDATE shift_handovers SET _status = 'synced' WHERE id = ?;
+
+markUniformCheckSynced:
+UPDATE uniform_checks SET _status = 'synced' WHERE id = ?;

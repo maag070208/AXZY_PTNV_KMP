@@ -1,0 +1,17 @@
+-- Consultas de la entidad Kardex.
+
+insertKardex:
+INSERT INTO kardex (id, user_id, location_id, timestamp, notes, media, latitude, longitude, assignment_id, scan_type, created_at, updated_at, _status)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+updateKardexContent:
+UPDATE kardex SET notes = ?, media = ?, updated_at = ?, _status = 'updated' WHERE id = ?;
+
+selectKardexById:
+SELECT * FROM kardex WHERE id = ?;
+
+selectKardexByUser:
+SELECT * FROM kardex WHERE user_id = ? ORDER BY timestamp DESC;
+
+selectKardexBetween:
+SELECT * FROM kardex WHERE timestamp >= ? AND timestamp <= ? ORDER BY timestamp ASC;

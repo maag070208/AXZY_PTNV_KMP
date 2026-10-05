@@ -1,0 +1,7 @@
+-- Consultas de la entidad IncidentCategory (compartida por INCIDENT/MAINTENANCE/DISCIPLINE).
+
+selectCategoriesByType:
+SELECT * FROM incident_categories WHERE type = ? ORDER BY name;
+
+selectAllCategories:
+SELECT * FROM incident_categories ORDER BY name;

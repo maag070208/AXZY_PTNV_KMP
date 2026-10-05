@@ -1,0 +1,17 @@
+-- Consultas de la entidad Incident.
+
+insertIncident:
+INSERT INTO incidents (id, guard_id, title, category_id, type_id, description, media, latitude, longitude, status, client_id, created_at, updated_at, _status)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+selectAllIncidents:
+SELECT * FROM incidents ORDER BY created_at DESC;
+
+selectIncidentsByGuard:
+SELECT * FROM incidents WHERE guard_id = ? ORDER BY created_at DESC;
+
+selectPendingIncidents:
+SELECT * FROM incidents WHERE status = 'PENDING' ORDER BY created_at DESC;
+
+selectIncidentById:
+SELECT * FROM incidents WHERE id = ?;

@@ -1,0 +1,304 @@
+-- Esquema local offline-first (paridad con WatermelonDB de la app React Native).
+-- _status: synced | created | updated | deleted
+-- Fechas absolutas: INTEGER (epoch millis). Hora de negocio: TEXT 'HH:mm'.
+-- Fecha de turno: TEXT 'YYYY-MM-DD'.
+-- Booleanos: INTEGER (0/1); la conversión a Boolean se hace en los mappers de entidad.
+
+CREATE TABLE roles (
+  id TEXT NOT NULL PRIMARY KEY,
+  name TEXT NOT NULL,
+  value TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  _status TEXT NOT NULL DEFAULT 'created'
+);
+
+CREATE TABLE clients (
+  id TEXT NOT NULL PRIMARY KEY,
+  name TEXT NOT NULL,
+  address TEXT,
+  rfc TEXT,
+  contact_name TEXT,
+  contact_phone TEXT,
+  active INTEGER NOT NULL,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  _status TEXT NOT NULL DEFAULT 'created'
+);
+
+CREATE TABLE zones (
+  id TEXT NOT NULL PRIMARY KEY,
+  client_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  active INTEGER NOT NULL,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  _status TEXT NOT NULL DEFAULT 'created'
+);
+CREATE INDEX zones_client_id ON zones(client_id);
+
+CREATE TABLE users (
+  id TEXT NOT NULL PRIMARY KEY,
+  name TEXT NOT NULL,
+  last_name TEXT,
+  username TEXT NOT NULL,
+  active INTEGER NOT NULL,
+  shift_start TEXT,
+  shift_end TEXT,
+  is_logged_in INTEGER NOT NULL,
+  schedule_id TEXT,
+  client_id TEXT,
+  role_id TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  _status TEXT NOT NULL DEFAULT 'created'
+);
+CREATE INDEX users_username ON users(username);
+CREATE INDEX users_schedule_id ON users(schedule_id);
+CREATE INDEX users_client_id ON users(client_id);
+CREATE INDEX users_role_id ON users(role_id);
+
+CREATE TABLE schedules (
+  id TEXT NOT NULL PRIMARY KEY,
+  name TEXT NOT NULL,
+  start_time TEXT NOT NULL,
+  end_time TEXT NOT NULL,
+  active INTEGER NOT NULL,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  _status TEXT NOT NULL DEFAULT 'created'
+);
+
+CREATE TABLE locations (
+  id TEXT NOT NULL PRIMARY KEY,
+  client_id TEXT,
+  zone_id TEXT,
+  aisle TEXT,
+  spot TEXT,
+  number TEXT,
+  name TEXT NOT NULL,
+  reference TEXT,
+  is_occupied INTEGER NOT NULL,
+  active INTEGER NOT NULL,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  _status TEXT NOT NULL DEFAULT 'created'
+);
+CREATE INDEX locations_client_id ON locations(client_id);
+CREATE INDEX locations_zone_id ON locations(zone_id);
+
+CREATE TABLE location_tasks (
+  id TEXT NOT NULL PRIMARY KEY,
+  location_id TEXT NOT NULL,
+  description TEXT NOT NULL,
+  req_photo INTEGER NOT NULL,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  _status TEXT NOT NULL DEFAULT 'created'
+);
+CREATE INDEX location_tasks_location_id ON location_tasks(location_id);
+
+CREATE TABLE kardex (
+  id TEXT NOT NULL PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  location_id TEXT NOT NULL,
+  timestamp INTEGER NOT NULL,
+  notes TEXT,
+  media TEXT,
+  latitude REAL,
+  longitude REAL,
+  assignment_id TEXT,
+  scan_type TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  _status TEXT NOT NULL DEFAULT 'created'
+);
+CREATE INDEX kardex_user_id ON kardex(user_id);
+CREATE INDEX kardex_location_id ON kardex(location_id);
+CREATE INDEX kardex_assignment_id ON kardex(assignment_id);
+
+CREATE TABLE assignments (
+  id TEXT NOT NULL PRIMARY KEY,
+  guard_id TEXT NOT NULL,
+  location_id TEXT NOT NULL,
+  status TEXT NOT NULL,
+  assigned_by TEXT NOT NULL,
+  notes TEXT,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  _status TEXT NOT NULL DEFAULT 'created'
+);
+CREATE INDEX assignments_guard_id ON assignments(guard_id);
+CREATE INDEX assignments_location_id ON assignments(location_id);
+
+CREATE TABLE assignment_tasks (
+  id TEXT NOT NULL PRIMARY KEY,
+  assignment_id TEXT NOT NULL,
+  description TEXT NOT NULL,
+  req_photo INTEGER NOT NULL,
+  completed INTEGER NOT NULL,
+  completed_at INTEGER,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  _status TEXT NOT NULL DEFAULT 'created'
+);
+CREATE INDEX assignment_tasks_assignment_id ON assignment_tasks(assignment_id);
+
+CREATE TABLE incident_categories (
+  id TEXT NOT NULL PRIMARY KEY,
+  name TEXT NOT NULL,
+  value TEXT NOT NULL,
+  type TEXT NOT NULL,
+  color TEXT,
+  icon TEXT,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  _status TEXT NOT NULL DEFAULT 'created'
+);
+
+CREATE TABLE incident_types (
+  id TEXT NOT NULL PRIMARY KEY,
+  category_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  value TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  _status TEXT NOT NULL DEFAULT 'created'
+);
+CREATE INDEX incident_types_category_id ON incident_types(category_id);
+
+CREATE TABLE incidents (
+  id TEXT NOT NULL PRIMARY KEY,
+  guard_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  category_id TEXT,
+  type_id TEXT,
+  description TEXT,
+  media TEXT,
+  latitude REAL,
+  longitude REAL,
+  status TEXT NOT NULL,
+  client_id TEXT,
+  resolved_at INTEGER,
+  resolved_by_id TEXT,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  _status TEXT NOT NULL DEFAULT 'created'
+);
+CREATE INDEX incidents_guard_id ON incidents(guard_id);
+CREATE INDEX incidents_category_id ON incidents(category_id);
+CREATE INDEX incidents_type_id ON incidents(type_id);
+CREATE INDEX incidents_client_id ON incidents(client_id);
+CREATE INDEX incidents_resolved_by_id ON incidents(resolved_by_id);
+
+CREATE TABLE rounds (
+  id TEXT NOT NULL PRIMARY KEY,
+  guard_id TEXT NOT NULL,
+  client_id TEXT,
+  start_time INTEGER NOT NULL,
+  end_time INTEGER,
+  status TEXT NOT NULL,
+  recurring_configuration_id TEXT,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  _status TEXT NOT NULL DEFAULT 'created'
+);
+CREATE INDEX rounds_guard_id ON rounds(guard_id);
+CREATE INDEX rounds_client_id ON rounds(client_id);
+CREATE INDEX rounds_recurring_configuration_id ON rounds(recurring_configuration_id);
+
+CREATE TABLE maintenances (
+  id TEXT NOT NULL PRIMARY KEY,
+  guard_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  category_id TEXT,
+  type_id TEXT,
+  description TEXT,
+  media TEXT,
+  latitude REAL,
+  longitude REAL,
+  status TEXT NOT NULL,
+  client_id TEXT,
+  resolved_at INTEGER,
+  resolved_by_id TEXT,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  _status TEXT NOT NULL DEFAULT 'created'
+);
+CREATE INDEX maintenances_guard_id ON maintenances(guard_id);
+CREATE INDEX maintenances_category_id ON maintenances(category_id);
+CREATE INDEX maintenances_type_id ON maintenances(type_id);
+CREATE INDEX maintenances_client_id ON maintenances(client_id);
+CREATE INDEX maintenances_resolved_by_id ON maintenances(resolved_by_id);
+
+CREATE TABLE recurring_configurations (
+  id TEXT NOT NULL PRIMARY KEY,
+  title TEXT NOT NULL,
+  client_id TEXT,
+  active INTEGER NOT NULL,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  _status TEXT NOT NULL DEFAULT 'created'
+);
+CREATE INDEX recurring_configurations_client_id ON recurring_configurations(client_id);
+
+CREATE TABLE recurring_locations (
+  id TEXT NOT NULL PRIMARY KEY,
+  recurring_configuration_id TEXT NOT NULL,
+  location_id TEXT NOT NULL,
+  sort_order INTEGER NOT NULL,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  _status TEXT NOT NULL DEFAULT 'created'
+);
+CREATE INDEX recurring_locations_config_id ON recurring_locations(recurring_configuration_id);
+CREATE INDEX recurring_locations_location_id ON recurring_locations(location_id);
+
+CREATE TABLE recurring_tasks (
+  id TEXT NOT NULL PRIMARY KEY,
+  recurring_location_id TEXT NOT NULL,
+  description TEXT NOT NULL,
+  req_photo INTEGER NOT NULL,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  _status TEXT NOT NULL DEFAULT 'created'
+);
+CREATE INDEX recurring_tasks_recurring_location_id ON recurring_tasks(recurring_location_id);
+
+CREATE TABLE shift_handovers (
+  id TEXT NOT NULL PRIMARY KEY,
+  client_id TEXT NOT NULL,
+  schedule_id TEXT NOT NULL,
+  shift_date TEXT NOT NULL,
+  credentials_count INTEGER,
+  tarjetones_count INTEGER,
+  novedades TEXT,
+  checklist TEXT NOT NULL,
+  reported_to_admin INTEGER NOT NULL,
+  created_by_id TEXT NOT NULL,
+  elements TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  _status TEXT NOT NULL DEFAULT 'created'
+);
+CREATE INDEX shift_handovers_client_id ON shift_handovers(client_id);
+CREATE INDEX shift_handovers_shift_date ON shift_handovers(shift_date);
+
+CREATE TABLE uniform_checks (
+  id TEXT NOT NULL PRIMARY KEY,
+  guard_id TEXT NOT NULL,
+  client_id TEXT,
+  schedule_id TEXT,
+  shift_date TEXT,
+  evaluated_by_id TEXT NOT NULL,
+  items TEXT NOT NULL,
+  score INTEGER NOT NULL,
+  compliant INTEGER NOT NULL,
+  notes TEXT,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  _status TEXT NOT NULL DEFAULT 'created'
+);
+CREATE INDEX uniform_checks_guard_id ON uniform_checks(guard_id);
+CREATE INDEX uniform_checks_client_id ON uniform_checks(client_id);
+CREATE INDEX uniform_checks_shift_date ON uniform_checks(shift_date);

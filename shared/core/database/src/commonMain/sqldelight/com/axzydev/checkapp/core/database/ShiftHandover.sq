@@ -1,0 +1,11 @@
+-- Consultas de la entidad ShiftHandover.
+
+insertShiftHandover:
+INSERT INTO shift_handovers (id, client_id, schedule_id, shift_date, credentials_count, tarjetones_count, novedades, checklist, reported_to_admin, created_by_id, elements, created_at, updated_at, _status)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+selectShiftHandovers:
+SELECT * FROM shift_handovers ORDER BY created_at DESC;
+
+selectShiftHandoverById:
+SELECT * FROM shift_handovers WHERE id = ?;

@@ -1,0 +1,4 @@
+-- Consultas de la entidad Role.
+
+selectAllRoles:
+SELECT * FROM roles ORDER BY name;
