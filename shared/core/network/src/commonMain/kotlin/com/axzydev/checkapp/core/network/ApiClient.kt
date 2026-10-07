@@ -4,6 +4,7 @@ import com.axzydev.checkapp.core.common.result.ApiEnvelope
 import com.axzydev.checkapp.core.common.result.ApiResult
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
+import io.ktor.client.plugins.HttpRequestTimeoutException
 import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
@@ -18,6 +19,24 @@ import io.ktor.http.isSuccess
 @PublishedApi
 internal fun HttpRequestBuilder.applyQuery(query: Map<String, Any?>) {
     query.forEach { (key, value) -> if (value != null) parameter(key, value) }
+}
+
+/**
+ * Traduce un fallo de transporte a un mensaje que se pueda leer en pantalla.
+ *
+ * Ktor propaga la excepción de la plataforma tal cual, y en iOS su `message` es
+ * el volcado entero de `NSURLErrorDomain` — quince líneas de diccionario nativo
+ * con la URL dentro. Eso llegaba literalmente al formulario de login, debajo del
+ * campo de contraseña. El detalle técnico se descarta a propósito: al usuario le
+ * sirve saber *qué puede hacer*, y para diagnosticar están los logs del cliente.
+ */
+@PublishedApi
+internal fun transportErrorMessage(t: Throwable): String = when (t) {
+    is HttpRequestTimeoutException ->
+        "El servidor tardó demasiado en responder. Intenta de nuevo."
+
+    else ->
+        "Sin conexión con el servidor. Revisa tu red e intenta de nuevo."
 }
 
 /**
@@ -61,7 +80,7 @@ class ApiClient(
         val response = try {
             block()
         } catch (t: Throwable) {
-            return ApiResult.Failure(listOf(t.message ?: "Error de conexión"), networkError = true)
+            return ApiResult.Failure(listOf(transportErrorMessage(t)), networkError = true)
         }
 
         if (response.status.value >= 500) {
@@ -74,7 +93,7 @@ class ApiClient(
         val envelope = try {
             response.body<ApiEnvelope<T>>()
         } catch (t: Throwable) {
-            return ApiResult.Failure(listOf(t.message ?: "Respuesta inválida"))
+            return ApiResult.Failure(listOf("Respuesta inválida del servidor"))
         }
 
         return if (response.status.isSuccess() && envelope.success) {

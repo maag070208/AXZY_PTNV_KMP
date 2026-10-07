@@ -1,6 +1,7 @@
 package com.axzydev.checkapp.design.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -99,7 +100,10 @@ fun ITActionTile(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(54.dp)
-                .background(colors.soft, AxzyShape.actionTile),
+                .background(colors.soft, AxzyShape.actionTile)
+                // Un borde del propio tono: sin él, el relleno suave se lee como
+                // un rectángulo descolorido en vez de como una acción.
+                .border(1.dp, colors.border, AxzyShape.actionTile),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
         ) {

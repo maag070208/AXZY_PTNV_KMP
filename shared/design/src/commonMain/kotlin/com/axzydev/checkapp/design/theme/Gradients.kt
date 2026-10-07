@@ -1,5 +1,6 @@
 package com.axzydev.checkapp.design.theme
 
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 
 /**
@@ -25,6 +26,21 @@ object AxzyGradients {
      */
     val brand = Brush.linearGradient(
         colors = listOf(Palette.brand400, Palette.brand600, Palette.brand800),
+    )
+
+    /**
+     * Degradado de marca anclado a unos límites concretos (en px).
+     *
+     * El degradado del login no puede depender del tamaño de su caja: el verde se
+     * pinta a **pantalla completa** y la rampa tiene que terminar siempre a la
+     * misma altura, con la hoja del formulario tapando el resto. Más allá de
+     * [endY] el color se queda en el último de la rampa (verde profundo), que es
+     * justo lo que asoma por las esquinas redondeadas de la hoja.
+     */
+    fun brandRamp(endX: Float, endY: Float): Brush = Brush.linearGradient(
+        colors = listOf(Palette.brand400, Palette.brand600, Palette.brand800),
+        start = Offset(0f, 0f),
+        end = Offset(endX, endY),
     )
 
     /** Cabecera más suave, para pantallas de detalle. */

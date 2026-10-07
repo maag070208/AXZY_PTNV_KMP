@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -125,6 +126,15 @@ fun ITListItem(
     badge: (@Composable () -> Unit)? = null,
     avatarInitial: String? = null,
     avatarStatus: Tone? = null,
+    /**
+     * Icono de la fila, **sin recuadro ni inicial**.
+     *
+     * Para listas de accesos (menú, ajustes, "Historial / Notificaciones / Mi
+     * perfil"): una letra que repite la palabra de al lado no informa de nada, y
+     * el recuadro tintado le da a la fila el peso visual de un dato cuando en
+     * realidad sólo es un enlace.
+     */
+    leadingIcon: (@Composable () -> Unit)? = null,
     onClick: (() -> Unit)? = null,
     reference: String? = null,
     footer: (@Composable () -> Unit)? = null,
@@ -141,6 +151,13 @@ fun ITListItem(
                 horizontalArrangement = Arrangement.spacedBy(AxzySpacing.md),
             ) {
                 avatarInitial?.let { ITAvatar(initial = it, status = avatarStatus) }
+
+                leadingIcon?.let { icon ->
+                    Box(
+                        modifier = Modifier.size(24.dp),
+                        contentAlignment = Alignment.Center,
+                    ) { icon() }
+                }
 
                 Column(modifier = Modifier.weight(1f)) {
                     ITText(

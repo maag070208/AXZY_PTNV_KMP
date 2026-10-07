@@ -150,7 +150,7 @@ private fun AppNavHost(
     val feedback = remember { FeedbackController() }
 
     ITNavigationDrawer(
-        items = buildMenu(navController),
+        items = buildMenu(navController, session?.role),
         isOpen = menuOpen,
         onClose = { menuOpen = false },
         header = { DrawerHeader(userName = userName, roleLabel = roleLabel) },
@@ -217,6 +217,7 @@ private fun AppNavHost(
                 onOpenNotifications = { navController.navigate(NotificationsDestination) },
                 onSync = { navController.navigate(SyncDestination) },
                 onLogout = logout,
+                onOpenMenu = { menuOpen = true },
             )
         }
         composable<SyncDestination> {
@@ -363,11 +364,21 @@ private fun AppNavHost(
             }
 
             if (onAdminHome || onGuardHome) {
+                // "Inicio" tiene que llevar al inicio **del rol**: con el guardia
+                // abierto navegaba al panel del administrador, así que la pestaña
+                // sacaba al guardia de su pantalla.
+                val onHome = onAdminHome || onGuardHome
+                val home = if (session?.role?.isGuard == true) {
+                    GuardHomeDestination
+                } else {
+                    AdminHomeDestination
+                }
+
                 ITBottomBar(
                     tabs = listOf(
-                        ITTab(label = "Inicio", selected = onAdminHome, icon = ITIcons.Home) {
-                            if (!onAdminHome) {
-                                navController.navigate(AdminHomeDestination) { launchSingleTop = true }
+                        ITTab(label = "Inicio", selected = onHome, icon = ITIcons.Home) {
+                            if (!onHome) {
+                                navController.navigate(home) { launchSingleTop = true }
                             }
                         },
                         ITTab(
@@ -386,54 +397,103 @@ private fun AppNavHost(
 }
 
 /**
- * Entradas del menú lateral.
+ * Entradas del menú lateral, **filtradas por rol**.
  *
  * Se agrupan por sección: en la app original el drawer era una lista plana de
  * ~15 entradas y encontrar "Zonas" obligaba a recorrerla entera. Agrupadas, el
  * menú se lee en lugar de escanearse.
+ *
+ * El reparto por rol sale de la app React Native (`DrawerContent.tsx`,
+ * `MENU_ITEMS[].roles`), que es la referencia de producto. Antes esta función no
+ * miraba el rol: un guardia veía el menú completo del administrador —Clientes,
+ * Usuarios, Prenómina, Configuración de Rondas— y entraba a cualquiera de esas
+ * pantallas desde ahí. Con el reparto real, el guardia se queda con Inicio y Mi
+ * perfil; su navegación de verdad es el panel y la barra inferior.
+ *
+ * @param role `null` mientras la sesión todavía no cargó: en ese caso no se
+ *   filtra, porque quitar entradas y volver a ponerlas haría parpadear el menú
+ *   en cada arranque.
  */
-private fun buildMenu(navController: NavHostController): List<ITNavItem> {
-    fun item(label: String, section: String, icon: ImageVector, destination: Any) = ITNavItem(
-        label = label,
-        section = section,
-        icon = icon,
-        selected = false,
-        onClick = { navController.navigate(destination) { launchSingleTop = true } },
-    )
+private fun buildMenu(navController: NavHostController, role: UserRole?): List<ITNavItem> {
+    val admin = setOf(UserRole.ADMIN)
+    val adminShift = setOf(UserRole.ADMIN, UserRole.SHIFT)
+    val adminResdn = setOf(UserRole.ADMIN, UserRole.RESDN)
+    val adminMaint = setOf(UserRole.ADMIN, UserRole.MAINT, UserRole.RESDN)
+    val adminShiftResdn = setOf(UserRole.ADMIN, UserRole.SHIFT, UserRole.RESDN)
+    // Todos, incluido el residente: si no, el rol RESDN no tendría forma de
+    // volver al inicio desde el menú (en la RN tampoco lo tiene, y es un hueco).
+    val everyone = UserRole.entries.toSet()
+
+    fun item(
+        label: String,
+        section: String,
+        icon: ImageVector,
+        destination: Any,
+        roles: Set<UserRole> = everyone,
+    ): ITNavItem? {
+        if (role != null && role !in roles) return null
+        return ITNavItem(
+            label = label,
+            section = section,
+            icon = icon,
+            selected = false,
+            onClick = { navController.navigate(destination) { launchSingleTop = true } },
+        )
+    }
+
+    val home = role?.let { startDestinationFor(it) } ?: AdminHomeDestination
 
     // Mismo orden y agrupación que el sidebar de la WEB.
-    return listOf(
+    return listOfNotNull(
         // ── Principal ──
-        item("Inicio", "Principal", ITIcons.Home, AdminHomeDestination),
+        item("Inicio", "Principal", ITIcons.Home, home, everyone),
 
         // ── Residencial ──
-        item("Clientes", "Residencial", ITIcons.Business, ClientsDestination),
-        item("Ubicaciones", "Residencial", ITIcons.Place, LocationsDestination),
+        item("Clientes", "Residencial", ITIcons.Business, ClientsDestination, admin),
+        item("Ubicaciones", "Residencial", ITIcons.Place, LocationsDestination, adminShift),
 
         // ── Seguridad ──
-        item("Guardias", "Seguridad", ITIcons.ShieldCheck, GuardsDestination),
-        item("Horarios", "Seguridad", ITIcons.Calendar, SchedulesDestination),
-        item("Prenómina", "Seguridad", ITIcons.Walk, GuardLogsDestination),
-        item("Incidencias a Guardias", "Seguridad", ITIcons.ErrorOutline, GuardDisciplineDestination),
-        item("Notificaciones", "Seguridad", ITIcons.Bell, NotificationsDestination),
+        item("Guardias", "Seguridad", ITIcons.ShieldCheck, GuardsDestination, adminShiftResdn),
+        item("Horarios", "Seguridad", ITIcons.Calendar, SchedulesDestination, admin),
+        item("Prenómina", "Seguridad", ITIcons.Walk, GuardLogsDestination, adminShift),
+        item(
+            "Incidencias a Guardias",
+            "Seguridad",
+            ITIcons.ErrorOutline,
+            GuardDisciplineDestination,
+            adminShiftResdn,
+        ),
+        item("Notificaciones", "Seguridad", ITIcons.Bell, NotificationsDestination, adminShift),
 
         // ── Supervisión ──
-        item("Entregas de turno", "Supervisión", ITIcons.Layers, ShiftHandoverDestination),
-        item("Uniformes", "Supervisión", ITIcons.ShieldCheck, UniformCheckDestination),
+        item(
+            "Entregas de turno",
+            "Supervisión",
+            ITIcons.Layers,
+            ShiftHandoverDestination,
+            adminShiftResdn,
+        ),
+        item("Uniformes", "Supervisión", ITIcons.ShieldCheck, UniformCheckDestination, adminShiftResdn),
 
         // ── Operaciones ──
-        item("Incidencias", "Operaciones", ITIcons.Warning, IncidentsDestination),
-        item("Mantenimientos", "Operaciones", ITIcons.Wrench, MaintenanceDestination),
-        item("Configuración de Rondas", "Operaciones", ITIcons.Repeat, RecurringDestination),
-        item("Historial de recorridos", "Operaciones", ITIcons.Route, KardexDestination),
-        item("Asignaciones", "Operaciones", ITIcons.Layers, AssignmentsDestination),
+        item("Incidencias", "Operaciones", ITIcons.Warning, IncidentsDestination, adminShiftResdn),
+        item("Mantenimientos", "Operaciones", ITIcons.Wrench, MaintenanceDestination, adminMaint),
+        item("Configuración de Rondas", "Operaciones", ITIcons.Repeat, RecurringDestination, adminShift),
+        item("Historial de recorridos", "Operaciones", ITIcons.Route, KardexDestination, adminShiftResdn),
+        item("Asignaciones", "Operaciones", ITIcons.Layers, AssignmentsDestination, adminShift),
 
         // ── Sistema ──
-        item("Usuarios", "Sistema", ITIcons.Person, UsersDestination),
-        item("Enviar aviso", "Sistema", ITIcons.ArrowForward, SendNotificationDestination),
-        item("Avisos programados", "Sistema", ITIcons.Calendar, ScheduledNotificationsDestination),
-        item("Imprimir QRs", "Sistema", ITIcons.Business, BulkPrintDestination),
-        item("Mi perfil", "Sistema", ITIcons.Person, ProfileDestination),
+        item("Usuarios", "Sistema", ITIcons.Person, UsersDestination, admin),
+        item("Enviar aviso", "Sistema", ITIcons.ArrowForward, SendNotificationDestination, adminShift),
+        item(
+            "Avisos programados",
+            "Sistema",
+            ITIcons.Calendar,
+            ScheduledNotificationsDestination,
+            adminShift,
+        ),
+        item("Imprimir QRs", "Sistema", ITIcons.Business, BulkPrintDestination, adminShift),
+        item("Mi perfil", "Sistema", ITIcons.Person, ProfileDestination, everyone),
     )
 }
 

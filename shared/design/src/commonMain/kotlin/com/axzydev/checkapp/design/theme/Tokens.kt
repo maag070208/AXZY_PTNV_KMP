@@ -142,6 +142,14 @@ object AxzyShape {
     /** Tarjeta grande y blanda, como el formulario del login original. */
     val cardLarge = RoundedCornerShape(28.dp)
 
+    /**
+     * Hoja inferior (login): sólo las esquinas de arriba.
+     *
+     * Va pegada al borde de abajo de la pantalla, así que redondear las de abajo
+     * dejaría ver el fondo por las puntas.
+     */
+    val sheet = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
+
     /** Botón de acción principal: 56 dp de alto con radio 16. */
     val button = RoundedCornerShape(16.dp)
 
@@ -182,6 +190,15 @@ object AxzyShadow {
     val raised = 18.dp
     /** Color de sombra: slate-900 al 8 %. El tinte evita el gris sucio. */
     val color = Color(0x140F172A)
+
+    /**
+     * Sombra de una pieza blanca sobre el degradado de marca (el logo del login).
+     *
+     * Sobre verde, la sombra teñida de slate casi no se ve: aquí hace falta negra
+     * y con más presencia, o el bloque se queda pegado al fondo como una
+     * calcomanía.
+     */
+    val onBrand = Color(0x59000000)
 }
 
 /** Duraciones de animación, para que no aparezcan números sueltos por ahí. */

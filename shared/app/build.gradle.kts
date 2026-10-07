@@ -16,6 +16,9 @@ kotlin {
         iosTarget.binaries.framework {
             baseName = "Shared"
             isStatic = true
+            // SQLDelight (driver nativo) referencia sqlite3; sin esto el link de iOS
+            // falla con "Undefined symbol '_sqlite3_*'".
+            linkerOpts("-lsqlite3")
         }
     }
 

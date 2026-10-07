@@ -22,6 +22,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.axzydev.checkapp.core.common.time.currentGreeting
 import com.axzydev.checkapp.design.components.ITAvatar
 import com.axzydev.checkapp.design.components.ITBadge
 import com.axzydev.checkapp.design.components.ITModuleCard
@@ -34,9 +35,6 @@ import com.axzydev.checkapp.design.theme.AxzyColors
 import com.axzydev.checkapp.design.theme.AxzySpacing
 import com.axzydev.checkapp.design.theme.AxzyType
 import com.axzydev.checkapp.design.theme.Tone
-import kotlin.time.Clock
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
 
 /**
  * Un módulo del inicio.
@@ -170,7 +168,7 @@ private fun HomeHeader(
 
         Column(modifier = Modifier.weight(1f)) {
             ITText(
-                text = greeting(),
+                text = currentGreeting(),
                 color = AxzyColors.onSurfaceVariant,
                 style = AxzyType.itemMeta,
             )
@@ -265,24 +263,4 @@ private fun ModuleGrid(modules: List<HomeModule>) {
             }
         }
     }
-}
-
-/**
- * Hora local actual.
- *
- * Está aislada en su propia propiedad para poder sustituirla en pruebas: el
- * reloj del sistema no se puede fijar desde un test.
- *
- * En kotlinx-datetime 0.7 `Clock` vive en `kotlin.time`, no en `kotlinx.datetime`.
- */
-private val currentHour: Int
-    get() = Clock.System.now()
-        .toLocalDateTime(TimeZone.currentSystemDefault())
-        .hour
-
-/** Saludo según la hora del dispositivo. */
-private fun greeting(): String = when (currentHour) {
-    in 0..11 -> "Buenos días"
-    in 12..18 -> "Buenas tardes"
-    else -> "Buenas noches"
 }

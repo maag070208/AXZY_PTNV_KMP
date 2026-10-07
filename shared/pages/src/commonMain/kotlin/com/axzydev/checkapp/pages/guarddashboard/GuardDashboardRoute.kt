@@ -23,6 +23,13 @@ fun GuardDashboardRoute(
     onOpenNotifications: () -> Unit,
     onSync: () -> Unit,
     onLogout: () -> Unit,
+    /**
+     * Abrir el menú lateral.
+     *
+     * Faltaba: la hamburguesa del panel del guardia no hacía nada porque la
+     * pantalla se quedaba con el `onOpenMenu` por defecto, que está vacío.
+     */
+    onOpenMenu: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val viewModel: GuardDashboardViewModel = koinViewModel()
@@ -52,6 +59,7 @@ fun GuardDashboardRoute(
         onOpenNotifications = onOpenNotifications,
         onSync = onSync,
         onLogout = onLogout,
+        onOpenMenu = onOpenMenu,
         modifier = modifier,
     )
 }
