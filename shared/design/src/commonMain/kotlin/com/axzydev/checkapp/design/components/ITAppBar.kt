@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -25,7 +26,9 @@ import com.axzydev.checkapp.design.icons.ITIcons
 import com.axzydev.checkapp.design.generated.resources.Res
 import com.axzydev.checkapp.design.generated.resources.checkapp_mark
 import com.axzydev.checkapp.design.generated.resources.checkapp_wordmark
+import com.axzydev.checkapp.design.generated.resources.checkapp_wordmark_light
 import com.axzydev.checkapp.design.theme.AxzyColors
+import com.axzydev.checkapp.design.theme.isDarkMode
 import com.axzydev.checkapp.design.theme.AxzyShape
 import com.axzydev.checkapp.design.theme.AxzySpacing
 import com.axzydev.checkapp.design.theme.AxzyType
@@ -170,18 +173,41 @@ fun BrandLogo(
  * cabecera del menú lateral; en la barra de la app va sólo la marca, porque el
  * título de la pantalla ya está al lado.
  *
- * `height` controla el alto y el ancho se calcula solo: el lockup tiene una
- * proporción fija de 912x250, y forzarlo a un cuadrado lo deformaría.
+ * `height` controla el alto del **logo**, no el del lienzo, y el ancho se calcula
+ * solo. **El `aspectRatio` no es decorativo**: sin él, `Icon` metía el lockup en una
+ * caja cuadrada y salía dibujado a un tercio de su ancho real.
  */
 @Composable
 fun BrandWordmark(
     modifier: Modifier = Modifier,
     height: Int = 32,
 ) {
+    // En oscuro se usa la variante de **tinta clara**: el PNG normal trae "Check" en
+    // azul oscuro y sobre una superficie oscura desaparece. Los dos assets salen de
+    // `scripts/generate_brand_dark_assets.py`, que además les quitó el fondo blanco
+    // opaco (era el recorte blanco que se veía sobre el tema oscuro).
+    val asset = if (isDarkMode) {
+        Res.drawable.checkapp_wordmark_light
+    } else {
+        Res.drawable.checkapp_wordmark
+    }
+
     Icon(
-        painter = painterResource(Res.drawable.checkapp_wordmark),
+        painter = painterResource(asset),
         contentDescription = "CheckApp",
         tint = Color.Unspecified,
-        modifier = modifier.height(height.dp),
+        modifier = modifier
+            .height(height.dp)
+            .aspectRatio(WORDMARK_ASPECT_RATIO),
     )
 }
+
+/**
+ * Relación del lockup: 972x265 px.
+ *
+ * El PNG venía del kit de marca como un lienzo **1024x1024** con el logo en una
+ * franja central, y eso rompía `height`: se aplicaba al lienzo, así que pedir 72 dp
+ * daba un logo visible de ~19 dp. `scripts/normalize_brand_assets.py` recorta el
+ * relleno y deja este tamaño; si se reemplaza el asset hay que volver a recortarlo.
+ */
+private const val WORDMARK_ASPECT_RATIO = 972f / 265f

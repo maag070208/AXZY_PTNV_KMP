@@ -13,6 +13,14 @@ import androidx.camera.view.PreviewView
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Text
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -84,8 +92,9 @@ actual fun QrScannerView(
         }
     }
 
+    Box(modifier = modifier.fillMaxSize()) {
     AndroidView(
-        modifier = modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize(),
         factory = { ctx ->
             val previewView = PreviewView(ctx)
             val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
@@ -129,4 +138,25 @@ actual fun QrScannerView(
             previewView
         },
     )
+
+        // Guía de encuadre: sin ella la cámara no dice que lo que se busca es un
+        // código. El marco no limita el escaneo —se lee la imagen completa—, sólo
+        // indica dónde ponerlo.
+        Box(
+            modifier = Modifier
+                .align(Alignment.Center)
+                .size(200.dp)
+                .border(width = 3.dp, color = Color.White, shape = RoundedCornerShape(24.dp)),
+        )
+
+        Text(
+            text = "Escanea el código QR del punto",
+            color = Color.White,
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .padding(bottom = 16.dp, start = 24.dp, end = 24.dp),
+        )
+    }
 }

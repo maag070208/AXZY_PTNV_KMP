@@ -4,7 +4,16 @@
     <dict>
         <key>CADisableMinimumFrameDurationOnPhone</key>
         <true/>
+        <!--
+          Descripciones de uso: iOS **crashea** si se pide un permiso sin la suya, y
+          este texto es el que ve el usuario en el diálogo. Cada una dice para qué,
+          con las mismas palabras que la pantalla de permisos de la app.
+        -->
         <key>NSCameraUsageDescription</key>
-        <string>Se usa la cámara para escanear el código QR de los puntos de control.</string>
+        <string>Se usa la cámara para escanear el QR de los puntos de control y para adjuntar la evidencia de una incidencia.</string>
+        <key>NSLocationWhenInUseUsageDescription</key>
+        <string>Se usa tu ubicación para dejar constancia de dónde marcaste cada punto de la ronda.</string>
+        <key>NSMicrophoneUsageDescription</key>
+        <string>Se usa el micrófono para el audio de los vídeos de evidencia.</string>
     </dict>
 </plist>

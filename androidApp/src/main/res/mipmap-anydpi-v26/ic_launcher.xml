@@ -1,5 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  Icono adaptativo (API 26+).
+
+  Fondo: verde de marca. Frente: el glifo QR+pin en blanco, generado desde
+  `checkapp_mark.png` por `scripts/generate_launcher_icon.py` — el mark original
+  trae el pin en verde y sobre el fondo verde desaparecería, así que se repinta.
+  Monocromo: para los iconos temáticos de Android 13+, donde el sistema tiñe el
+  glifo con el color del fondo de pantalla.
+-->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-    <background android:drawable="@drawable/ic_launcher_background"/>
+    <background android:drawable="@color/ic_launcher_background"/>
     <foreground android:drawable="@drawable/ic_launcher_foreground"/>
+    <monochrome android:drawable="@drawable/ic_launcher_monochrome"/>
 </adaptive-icon>

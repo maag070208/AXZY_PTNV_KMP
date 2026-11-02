@@ -1,5 +1,7 @@
 package com.axzydev.checkapp.pages.profile.viewmodel
 
+import com.axzydev.checkapp.core.datastore.ThemeMode
+
 data class ProfileUiState(
     val loading: Boolean = true,
     val userId: String = "",
@@ -13,6 +15,8 @@ data class ProfileUiState(
     val changingPassword: Boolean = false,
     val message: String? = null,
     val error: String? = null,
+    /** Apariencia elegida; por defecto, la del teléfono. */
+    val themeMode: ThemeMode = ThemeMode.SYSTEM,
 )
 
 sealed interface ProfileAction {
@@ -23,5 +27,6 @@ sealed interface ProfileAction {
     data class NewPassword(val value: String) : ProfileAction
     data class ConfirmPassword(val value: String) : ProfileAction
     data object ChangePassword : ProfileAction
+    data class SetTheme(val mode: ThemeMode) : ProfileAction
     data object DismissMessage : ProfileAction
 }

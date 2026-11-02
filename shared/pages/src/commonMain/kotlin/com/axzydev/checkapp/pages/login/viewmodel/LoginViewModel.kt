@@ -26,6 +26,9 @@ class LoginViewModel(
         when (action) {
             is LoginAction.Username -> _state.update { it.copy(username = action.value, error = null) }
             is LoginAction.Password -> _state.update { it.copy(password = action.value, error = null) }
+            // No se limpia el error al marcar la casilla: si el mensaje es el del
+            // límite de intentos, borrarlo al tocar "Recordarme" confundiría.
+            is LoginAction.RememberMe -> _state.update { it.copy(rememberMe = action.value) }
             LoginAction.Submit -> submit()
         }
     }
@@ -35,16 +38,30 @@ class LoginViewModel(
         if (!current.canSubmit) return
         _state.update { it.copy(loading = true, error = null) }
         viewModelScope.launch {
-            when (val result = login(current.username, current.password)) {
+            when (val result = login(current.username, current.password, current.rememberMe)) {
                 is ApiResult.Success -> {
                     _state.update { it.copy(loading = false) }
                     _effects.send(LoginEffect.LoggedIn(result.data.role))
                 }
 
                 is ApiResult.Failure -> _state.update {
-                    it.copy(loading = false, error = result.firstMessage)
+                    it.copy(loading = false, error = loginErrorMessage(result))
                 }
             }
         }
     }
+
+    /**
+     * El login tiene límite de intentos por IP (10 cada 15 minutos). Un `429` no
+     * significa "credenciales incorrectas": decírselo al guardia lo llevaría a
+     * reescribir la contraseña una y otra vez sin entender qué pasa.
+     */
+    private fun loginErrorMessage(failure: ApiResult.Failure): String =
+        if (failure.statusCode == TOO_MANY_REQUESTS) {
+            "Demasiados intentos. Espera unos minutos e intenta de nuevo."
+        } else {
+            failure.firstMessage
+        }
 }
+
+private const val TOO_MANY_REQUESTS = 429

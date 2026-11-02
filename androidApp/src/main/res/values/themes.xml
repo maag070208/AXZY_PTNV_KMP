@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Tema de la app.
+
+  Lo único que añade sobre el tema de Material es el `windowBackground` verde: es
+  lo que ve el usuario entre que pulsa el icono y Compose dibuja el primer frame.
+  Sin esto se ve un fogonazo blanco antes del splash, y con el degradado de marca
+  arrancando en ese mismo verde el salto no se nota.
+-->
+<resources>
+    <style name="Theme.CheckApp" parent="@android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/brand_primary</item>
+    </style>
+</resources>

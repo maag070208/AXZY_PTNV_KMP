@@ -7,7 +7,7 @@ import com.axzydev.checkapp.core.datastore.SettingsStore
 import com.axzydev.checkapp.core.sync.FileBytesReader
 import com.axzydev.checkapp.platform.AndroidPlatformInfo
 import com.axzydev.checkapp.platform.PlatformInfo
-import com.axzydev.checkapp.platform.fs.OkioFileBytesReader
+import com.axzydev.checkapp.platform.fs.AndroidFileBytesReader
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.module.Module
 import org.koin.dsl.module
@@ -16,5 +16,5 @@ actual fun platformModule(): Module = module {
     single<DatabaseDriverFactory> { AndroidDatabaseDriverFactory(androidContext()) }
     single<SettingsStore> { AndroidSettingsStore(androidContext()) }
     single<PlatformInfo> { AndroidPlatformInfo() }
-    single<FileBytesReader> { OkioFileBytesReader() }
+    single<FileBytesReader> { AndroidFileBytesReader(androidContext()) }
 }

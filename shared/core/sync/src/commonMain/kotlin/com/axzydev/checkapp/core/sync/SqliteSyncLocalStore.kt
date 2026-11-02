@@ -22,6 +22,12 @@ import kotlinx.serialization.json.put
  * Implementación del store de sync sobre el `SqlDriver` de SQLDelight usando
  * SQL crudo. El motor de sync es genérico respecto al esquema, por lo que no
  * usa consultas tipadas por tabla.
+ *
+ * **Los índices de `bind*` son 0-based**: el primer parámetro es el 0, no el 1
+ * como en JDBC. Escribirlos 1-based no falla al compilar, y con una consulta de
+ * un solo parámetro revienta en tiempo de ejecución con
+ * `Index 1 out of bounds for length 1` — que fue exactamente lo que rompió el
+ * sync en el emulador: `localStatus` bindeaba en 1 sobre un `WHERE id = ?`.
  */
 class SqliteSyncLocalStore(private val driver: SqlDriver) : SyncLocalStore {
 
@@ -102,9 +108,9 @@ class SqliteSyncLocalStore(private val driver: SqlDriver) : SyncLocalStore {
                 parameters = dataCols.size + 1,
                 binders = {
                     dataCols.forEachIndexed { position, column ->
-                        bind(this, position + 1, record[column.api], column.type)
+                        bind(this, position, record[column.api], column.type)
                     }
-                    bindString(dataCols.size + 1, "synced")
+                    bindString(dataCols.size, "synced")
                 },
             )
         }
@@ -118,8 +124,8 @@ class SqliteSyncLocalStore(private val driver: SqlDriver) : SyncLocalStore {
             sql = "UPDATE $table SET media = ? WHERE id = ?",
             parameters = 2,
             binders = {
-                bindString(1, mediaJson)
-                bindString(2, id)
+                bindString(0, mediaJson)
+                bindString(1, id)
             },
         )
     }
@@ -130,7 +136,7 @@ class SqliteSyncLocalStore(private val driver: SqlDriver) : SyncLocalStore {
                 identifier = null,
                 sql = "UPDATE $table SET _status = 'synced' WHERE id = ?",
                 parameters = 1,
-                binders = { bindString(1, id) },
+                binders = { bindString(0, id) },
             )
         }
     }
@@ -178,7 +184,7 @@ class SqliteSyncLocalStore(private val driver: SqlDriver) : SyncLocalStore {
             sql = "SELECT _status FROM $table WHERE id = ?",
             mapper = { cursor -> QueryResult.Value(if (cursor.next().value) cursor.getString(0) else null) },
             parameters = 1,
-            binders = { bindString(1, id) },
+            binders = { bindString(0, id) },
         ).value
 
     private fun deleteNow(table: String, id: String) {
@@ -186,7 +192,7 @@ class SqliteSyncLocalStore(private val driver: SqlDriver) : SyncLocalStore {
             identifier = null,
             sql = "DELETE FROM $table WHERE id = ?",
             parameters = 1,
-            binders = { bindString(1, id) },
+            binders = { bindString(0, id) },
         )
     }
 

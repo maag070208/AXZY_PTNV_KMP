@@ -41,7 +41,7 @@ import com.axzydev.checkapp.design.components.BrandWordmark
 import com.axzydev.checkapp.design.components.FeedbackController
 import com.axzydev.checkapp.design.components.ITAvatar
 import com.axzydev.checkapp.design.components.ITFeedbackHost
-import com.axzydev.checkapp.design.components.ITSkeletonAppShell
+import com.axzydev.checkapp.design.components.ITSplashScreen
 import com.axzydev.checkapp.design.components.LocalFeedback
 import com.axzydev.checkapp.design.components.ITBadge
 import com.axzydev.checkapp.design.components.ITBottomBar
@@ -50,17 +50,22 @@ import com.axzydev.checkapp.design.components.ITNavItem
 import com.axzydev.checkapp.design.components.ITNavigationDrawer
 import com.axzydev.checkapp.design.components.ITTab
 import com.axzydev.checkapp.design.components.ITText
+import com.axzydev.checkapp.core.permissions.AppPermission
+import com.axzydev.checkapp.core.permissions.PermissionStatus
+import com.axzydev.checkapp.core.permissions.needsAttention
+import com.axzydev.checkapp.features.roundcontrol.model.HasActiveRoundUseCase
+import com.axzydev.checkapp.platform.permissions.rememberPermissionChecker
 import com.axzydev.checkapp.design.components.ITTouchableOpacity
 import com.axzydev.checkapp.design.icons.ITIcons
 import com.axzydev.checkapp.design.theme.AxzyColors
 import com.axzydev.checkapp.design.theme.AxzySpacing
 import com.axzydev.checkapp.design.theme.AxzyType
 import com.axzydev.checkapp.design.theme.Tone
+import com.axzydev.checkapp.entities.session.model.Session
 import com.axzydev.checkapp.entities.session.model.UserRole
 import com.axzydev.checkapp.entities.session.repository.SessionRepository
 import com.axzydev.checkapp.pages.bulkprint.BulkPrintRoute
 import com.axzydev.checkapp.pages.checkreport.CheckReportRoute
-import com.axzydev.checkapp.pages.checkscan.CheckScanRoute
 import com.axzydev.checkapp.pages.assignments.AssignmentsRoute
 import com.axzydev.checkapp.pages.clientdetail.ClientDetailRoute
 import com.axzydev.checkapp.pages.clients.ClientsRoute
@@ -70,11 +75,13 @@ import com.axzydev.checkapp.pages.guarddiscipline.GuardDisciplineRoute
 import com.axzydev.checkapp.pages.guardlogs.GuardLogsRoute
 import com.axzydev.checkapp.pages.guards.GuardsRoute
 import com.axzydev.checkapp.pages.home.HomeRoute
+import com.axzydev.checkapp.pages.getstarted.GetStartedRoute
 import com.axzydev.checkapp.pages.incidents.IncidentsRoute
 import com.axzydev.checkapp.pages.kardex.KardexRoute
 import com.axzydev.checkapp.pages.locations.LocationsRoute
 import com.axzydev.checkapp.pages.login.LoginRoute
 import com.axzydev.checkapp.pages.notifications.NotificationsRoute
+import com.axzydev.checkapp.pages.permissions.PermissionsRoute
 import com.axzydev.checkapp.pages.profile.ProfileRoute
 import com.axzydev.checkapp.pages.sendnotification.SendNotificationRoute
 import com.axzydev.checkapp.pages.schedulednotifications.ScheduledNotificationsRoute
@@ -90,6 +97,8 @@ import com.axzydev.checkapp.pages.sync.SyncRoute
 import com.axzydev.checkapp.pages.uniformcheck.UniformCheckRoute
 import com.axzydev.checkapp.pages.users.UsersRoute
 import com.axzydev.checkapp.pages.zones.ZonesRoute
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 
@@ -99,45 +108,69 @@ fun AppNavigation() {
     val versionProvider: AppVersionProviderImpl = koinInject()
 
     var startDestination by remember { mutableStateOf<Any?>(null) }
+    var restoredSession by remember { mutableStateOf<Session?>(null) }
 
     LaunchedEffect(Unit) {
         versionProvider.refresh()
-        val restored = sessionRepository.restore()
-        startDestination = restored?.let { startDestinationFor(it.role) } ?: LoginDestination
+
+        // El splash aguanta un mínimo en pantalla. Restaurar la sesión cuesta
+        // milisegundos: sin esta espera, el loader aparecería y se iría de golpe,
+        // y eso no se lee como una marca sino como un parpadeo. La restauración
+        // corre en paralelo, así que si un día tarda más que el mínimo, manda ella.
+        coroutineScope {
+            val hold = launch { delay(SPLASH_MIN_DURATION_MS) }
+            val restored = sessionRepository.restore()
+            hold.join()
+            restoredSession = restored
+
+            // La bienvenida se ve **siempre**, también al reabrir con sesión viva:
+            // es la marca de la app y el sitio donde saluda por el nombre. Lo que
+            // cambia es a dónde lleva su botón, y eso lo decide `restoredSession`.
+            startDestination = GetStartedDestination
+        }
     }
 
     val start = startDestination
     if (start == null) {
-        // Carga inicial: esqueleto con la forma de la app, no un spinner.
-        ITSkeletonAppShell()
+        // Mientras no se sabe a dónde ir: la marca animada, no un spinner.
+        ITSplashScreen()
     } else {
-        AppNavHost(startDestination = start, sessionRepository = sessionRepository)
+        AppNavHost(
+            startDestination = start,
+            sessionRepository = sessionRepository,
+            restoredSession = restoredSession,
+        )
     }
 }
+
+/**
+ * Tiempo mínimo que el splash permanece visible.
+ *
+ * El logo tarda ~1,35 s en armarse (frames 0-80 de la animación a 60 fps), así que
+ * con 1,4 s se veía a medio montar y desaparecía: el momento de marca no llegaba a
+ * existir. Con 2,2 s se arma y **queda montado** casi un segundo antes de pasar.
+ */
+private const val SPLASH_MIN_DURATION_MS = 2_200L
 
 @Composable
 private fun AppNavHost(
     startDestination: Any,
     sessionRepository: SessionRepository,
+    /** Sesión restaurada al arrancar, si la había: decide a dónde lleva la bienvenida. */
+    restoredSession: Session? = null,
 ) {
     val navController = rememberNavController()
     val scope = rememberCoroutineScope()
     val session by sessionRepository.sessionState.collectAsStateWithLifecycle()
+    val hasActiveRound: HasActiveRoundUseCase = koinInject()
+    val permissionChecker = rememberPermissionChecker()
 
     val userName = session?.fullName.orEmpty()
     val roleLabel = session?.role?.name.orEmpty()
 
-    val logout: () -> Unit = {
-        scope.launch {
-            sessionRepository.logout()
-            // `popUpTo(0)` limpia toda la pila: al salir no debe quedar ninguna
-            // pantalla con sesión detrás del login.
-            navController.navigate(LoginDestination) {
-                popUpTo(0) { inclusive = true }
-                launchSingleTop = true
-            }
-        }
-    }
+    // Un solo controlador de feedback para toda la app. Se declara antes de `logout`
+    // porque ese lambda lo usa para decir por qué no deja salir.
+    val feedback = remember { FeedbackController() }
 
     // Shell visual: menú lateral + barra inferior. La barra sólo aparece en las
     // pantallas principales; en formularios y detalles estorba.
@@ -146,8 +179,83 @@ private fun AppNavHost(
     val onAdminHome = currentRoute?.hasRoute<AdminHomeDestination>() == true
     val onGuardHome = currentRoute?.hasRoute<GuardHomeDestination>() == true
 
-    // Un solo controlador de feedback para toda la app.
-    val feedback = remember { FeedbackController() }
+    // Protección de rutas: ninguna pantalla que dependa de la sesión se puede
+    // quedar pintada sin ella. El splash ya esperó a restaurarla, así que aquí
+    // "sin sesión" es de verdad, no un estado a medio cargar.
+    //
+    // Es protección de **navegación**, no de seguridad: quien decide qué puede ver
+    // cada rol es el API con el token. Esto sólo evita el estado roto de una
+    // pantalla autenticada abierta sin sesión —y que se llegue ahí saltándose el
+    // flujo, como pasaba con el atrás de la pantalla de permisos—.
+    LaunchedEffect(session, currentRoute) {
+        val needsSession = currentRoute != null &&
+            !currentRoute.hasRoute<GetStartedDestination>() &&
+            !currentRoute.hasRoute<LoginDestination>()
+
+        if (session == null && needsSession) {
+            navController.navigate(LoginDestination) {
+                popUpTo(0) { inclusive = true }
+                launchSingleTop = true
+            }
+        }
+    }
+
+    // Se recalcula al abrir el menú (y al cambiar de sesión), no en cada frame: es
+    // una consulta a la base local y sólo importa cuando se va a ver el botón.
+    var roundInProgress by remember { mutableStateOf(false) }
+    LaunchedEffect(menuOpen, session?.userId) {
+        val guardId = session?.userId
+        roundInProgress = guardId != null && hasActiveRound(guardId)
+    }
+
+    /**
+     * A dónde ir después de entrar: al inicio del rol, o antes a los permisos si
+     * falta alguno.
+     *
+     * Se pregunta al sistema cada vez, no se guarda: el guardia pudo concederlos o
+     * revocarlos desde los ajustes entre una entrada y otra. El permiso de internet
+     * no cuenta —se concede al instalar— ni los que el aparato no tiene.
+     */
+    val enterAs: (Any) -> Unit = { target ->
+        scope.launch {
+            val missing = AppPermission.entries.any { permission ->
+                permission.runtime && permissionChecker.status(permission).needsAttention
+            }
+
+            if (missing) {
+                navController.navigate(PermissionsDestination(afterAuth = true)) {
+                    popUpTo<GetStartedDestination> { inclusive = true }
+                    popUpTo<LoginDestination> { inclusive = true }
+                    launchSingleTop = true
+                }
+            } else {
+                navController.navigate(target) {
+                    popUpTo<GetStartedDestination> { inclusive = true }
+                    popUpTo<LoginDestination> { inclusive = true }
+                    launchSingleTop = true
+                }
+            }
+        }
+    }
+
+    val logout: () -> Unit = {
+        scope.launch {
+            val guardId = session?.userId
+            // Con una ronda abierta no se sale: la ruta se quedaría sin dueño y los
+            // puntos que falten no los registraría quien los recorrió.
+            if (guardId != null && hasActiveRound(guardId)) {
+                feedback.error("Tienes una ruta en curso. Finalízala antes de cerrar sesión.")
+            } else {
+                sessionRepository.logout()
+                // `popUpTo(0)` limpia toda la pila: al salir no debe quedar ninguna
+                // pantalla con sesión detrás del login.
+                navController.navigate(LoginDestination) {
+                    popUpTo(0) { inclusive = true }
+                    launchSingleTop = true
+                }
+            }
+        }
+    }
 
     ITNavigationDrawer(
         items = buildMenu(navController, session?.role),
@@ -156,7 +264,12 @@ private fun AppNavHost(
         header = { DrawerHeader(userName = userName, roleLabel = roleLabel) },
         // Cerrar el menú antes de salir: si no, el login queda detrás del drawer
         // y parece que el botón no hizo nada.
-        footer = { DrawerFooter(onLogout = { menuOpen = false; logout() }) },
+        footer = {
+            DrawerFooter(
+                onLogout = { menuOpen = false; logout() },
+                blockedByRound = roundInProgress,
+            )
+        },
     ) {
         val openDrawer: () -> Unit = { menuOpen = true }
         CompositionLocalProvider(
@@ -167,14 +280,27 @@ private fun AppNavHost(
             Box(modifier = Modifier.weight(1f)) {
     ITFeedbackHost(controller = feedback) {
     NavHost(navController = navController, startDestination = startDestination) {
+        composable<GetStartedDestination> {
+            GetStartedRoute(
+                returningUserName = restoredSession?.fullName.orEmpty(),
+                onStart = {
+                    // Con sesión viva el botón entra directo a su inicio; sin sesión
+                    // lleva al login. Es lo único que distingue reabrir la app de
+                    // entrar por primera vez.
+                    val target = restoredSession
+                        ?.let { startDestinationFor(it.role) }
+                        ?: LoginDestination
+
+                    // `enterAs` decide si antes hay que pasar por los permisos; el
+                    // `popUpTo` de la bienvenida evita que el gesto de atrás vuelva a
+                    // la pantalla de presentación.
+                    enterAs(target)
+                },
+            )
+        }
         composable<LoginDestination> {
             LoginRoute(
-                onLoggedIn = { role: UserRole ->
-                    navController.navigate(startDestinationFor(role)) {
-                        popUpTo<LoginDestination> { inclusive = true }
-                        launchSingleTop = true
-                    }
-                },
+                onLoggedIn = { role: UserRole -> enterAs(startDestinationFor(role)) },
             )
         }
         composable<AdminHomeDestination> {
@@ -208,29 +334,14 @@ private fun AppNavHost(
                 onOpenCheck = { roundId, locationId ->
                     navController.navigate(CheckReportDestination(roundId, locationId))
                 },
-                onScan = { roundId -> navController.navigate(CheckScanDestination(roundId)) },
-                onOpenRound = { roundId -> navController.navigate(RoundDetailDestination(roundId)) },
-                onOpenKardex = { navController.navigate(KardexDestination) },
                 onReportIncident = { navController.navigate(IncidentReportDestination) },
                 onReportMaintenance = { navController.navigate(MaintenanceReportDestination) },
-                onOpenProfile = { navController.navigate(ProfileDestination) },
-                onOpenNotifications = { navController.navigate(NotificationsDestination) },
                 onSync = { navController.navigate(SyncDestination) },
-                onLogout = logout,
                 onOpenMenu = { menuOpen = true },
             )
         }
         composable<SyncDestination> {
             SyncRoute(onDone = { navController.popBackStack() })
-        }
-        composable<CheckScanDestination> { entry ->
-            val destination = entry.toRoute<CheckScanDestination>()
-            CheckScanRoute(
-                onLocationSelected = { locationId ->
-                    navController.navigate(CheckReportDestination(destination.roundId, locationId))
-                },
-                onBack = { navController.popBackStack() },
-            )
         }
         composable<CheckReportDestination> { entry ->
             val destination = entry.toRoute<CheckReportDestination>()
@@ -330,6 +441,29 @@ private fun AppNavHost(
         }
         composable<BulkPrintDestination> {
             BulkPrintRoute(onBack = { navController.popBackStack() })
+        }
+        composable<PermissionsDestination> { entry ->
+            val afterAuth = entry.toRoute<PermissionsDestination>().afterAuth
+            val continueAfter: () -> Unit = {
+                // Si el proceso murió y se perdió el destino, se cae al inicio del
+                // rol: nunca se deja al guardia en una pantalla sin salida.
+                val target = session?.role?.let { startDestinationFor(it) } ?: LoginDestination
+                navController.navigate(target) {
+                    popUpTo<PermissionsDestination> { inclusive = true }
+                    launchSingleTop = true
+                }
+            }
+
+            val popBack: () -> Unit = { navController.popBackStack() }
+
+            PermissionsRoute(
+                // En el flujo de entrada **no hay atrás**: el login ya se consumió, así
+                // que la flecha sólo podía llevar al inicio —una salida que nadie
+                // pidió— y el sistema tampoco tiene a dónde retroceder. Se sale con
+                // "Continuar", que es la decisión que sí existe.
+                onBack = if (afterAuth) null else popBack,
+                onContinue = if (afterAuth) continueAfter else null,
+            )
         }
         composable<ProfileDestination> {
             ProfileRoute(onBack = { navController.popBackStack() })
@@ -494,6 +628,7 @@ private fun buildMenu(navController: NavHostController, role: UserRole?): List<I
         ),
         item("Imprimir QRs", "Sistema", ITIcons.Business, BulkPrintDestination, adminShift),
         item("Mi perfil", "Sistema", ITIcons.Person, ProfileDestination, everyone),
+        item("Permisos", "Sistema", ITIcons.Lock, PermissionsDestination(), everyone),
     )
 }
 
@@ -531,7 +666,11 @@ private fun DrawerHeader(userName: String, roleLabel: String) {
 
 /** Pie del menú: cerrar sesión, fijo abajo. */
 @Composable
-private fun DrawerFooter(onLogout: () -> Unit) {
+private fun DrawerFooter(onLogout: () -> Unit, blockedByRound: Boolean) {
+    // Con una ronda en curso el botón se apaga y dice por qué: dejar pulsar algo que
+    // no va a funcionar es peor que no ofrecerlo.
+    val tint = if (blockedByRound) AxzyColors.slate400 else AxzyColors.error
+
     ITTouchableOpacity(onClick = onLogout, modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
@@ -543,14 +682,23 @@ private fun DrawerFooter(onLogout: () -> Unit) {
             Icon(
                 imageVector = ITIcons.Logout,
                 contentDescription = null,
-                tint = AxzyColors.error,
+                tint = tint,
                 modifier = Modifier.size(20.dp),
             )
-            ITText(
-                text = "Cerrar sesión",
-                color = AxzyColors.error,
-                style = AxzyType.cardTitle,
-            )
+            Column(modifier = Modifier.weight(1f)) {
+                ITText(
+                    text = "Cerrar sesión",
+                    color = tint,
+                    style = AxzyType.cardTitle,
+                )
+                if (blockedByRound) {
+                    ITText(
+                        text = "Termina tu ruta en curso",
+                        color = AxzyColors.onSurfaceVariant,
+                        style = AxzyType.labelSmall,
+                    )
+                }
+            }
         }
     }
 }

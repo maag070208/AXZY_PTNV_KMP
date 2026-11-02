@@ -17,7 +17,19 @@ interface SessionRepository {
     /** Restaura la sesión persistida. `null` si no hay o ya expiró. */
     suspend fun restore(): Session?
 
-    suspend fun login(username: String, password: String): ApiResult<Session>
+    /**
+     * Inicia sesión.
+     *
+     * @param remember `true` persiste el token para restaurar la sesión al
+     *   arrancar. `false` la deja **solo en memoria**: sirve para dispositivos
+     *   compartidos (un puesto con varios guardias), donde el siguiente no debe
+     *   heredar la sesión del anterior.
+     */
+    suspend fun login(
+        username: String,
+        password: String,
+        remember: Boolean = true,
+    ): ApiResult<Session>
 
     /** Actualiza el nombre mostrado en la sesión (tras editar el perfil). */
     fun updateDisplayName(fullName: String)

@@ -15,3 +15,17 @@ data class IncidentCategory(
         const val TYPE_DISCIPLINE = "DISCIPLINE"
     }
 }
+
+/**
+ * Sub-tipo de una categoría.
+ *
+ * Ojo con los dos nombres: `value` es el que se pinta —"Basura Acumulada"— y `name`
+ * es el código interno con el que se capturó —"BASURA"—. Enseñar `name` deja al
+ * guardia leyendo identificadores.
+ */
+data class IncidentType(
+    val id: String,
+    val categoryId: String,
+    val name: String,
+    val value: String,
+)

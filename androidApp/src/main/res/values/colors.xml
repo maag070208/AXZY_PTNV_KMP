@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      Color de marca. Está duplicado a propósito desde `Palette.brand500` de
+      Compose: los recursos XML de Android no pueden leer constantes de Kotlin, y
+      el icono lo genera `scripts/generate_launcher_icon.py` con el mismo valor.
+    -->
+    <color name="brand_primary">#12A36F</color>
+
+    <!-- Fondo del adaptive icon: el verde de marca del favicon de la WEB. -->
+    <color name="ic_launcher_background">#12A36F</color>
+</resources>

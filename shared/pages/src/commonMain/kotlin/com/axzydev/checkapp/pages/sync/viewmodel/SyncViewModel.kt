@@ -2,6 +2,7 @@ package com.axzydev.checkapp.pages.sync.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.axzydev.checkapp.core.sync.SyncRejectedException
 import com.axzydev.checkapp.core.sync.SyncStep
 import com.axzydev.checkapp.features.syncdatabase.model.SyncDatabaseUseCase
 import kotlinx.coroutines.channels.Channel
@@ -61,10 +62,26 @@ class SyncViewModel(
                 },
                 onFailure = { throwable ->
                     failActiveStep()
+                    // Un rechazo por contenido no se arregla reintentando: hay que
+                    // decir qué registro es y por qué, o el guardia sólo ve "no se
+                    // pudo sincronizar" y no tiene nada que corregir.
+                    val rejections = (throwable as? SyncRejectedException)
+                        ?.rejections
+                        .orEmpty()
+                        .map { rejection ->
+                            SyncRejectionUi(
+                                table = rejection.table,
+                                id = rejection.id,
+                                action = rejection.action,
+                                reason = rejection.reason,
+                            )
+                        }
+
                     _state.update {
                         it.copy(
                             status = SyncRunStatus.ERROR,
                             error = throwable.message ?: "Error al sincronizar",
+                            rejections = rejections,
                         )
                     }
                 },

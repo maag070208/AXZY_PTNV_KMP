@@ -1,4 +1,26 @@
+import java.util.Properties
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
+/**
+ * La key de Google Maps se lee de `local.properties`, que está ignorado por git: una
+ * key en el repositorio es una key filtrada, y además cada máquina puede tener la
+ * suya. Si falta, se avisa y se compila igual —el mapa saldrá vacío, pero la app
+ * arranca—.
+ */
+val googleMapsApiKey: String = run {
+    val file = rootProject.file("local.properties")
+    val properties = Properties().apply {
+        if (file.exists()) file.inputStream().use { load(it) }
+    }
+    properties.getProperty("GOOGLE_MAPS_API_KEY").orEmpty().also { key ->
+        if (key.isBlank()) {
+            logger.warn(
+                "GOOGLE_MAPS_API_KEY no está en local.properties: el mapa se verá vacío. " +
+                    "Añádela con GOOGLE_MAPS_API_KEY=...",
+            )
+        }
+    }
+}
 
 plugins {
     alias(libs.plugins.androidApplication)
@@ -30,6 +52,7 @@ android {
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = 1
         versionName = "1.0"
+        manifestPlaceholders["googleMapsApiKey"] = googleMapsApiKey
     }
     packaging {
         resources {

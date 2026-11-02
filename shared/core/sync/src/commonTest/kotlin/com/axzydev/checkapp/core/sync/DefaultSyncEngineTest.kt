@@ -96,19 +96,127 @@ class DefaultSyncEngineTest {
         assertEquals(null, api.pushedBody)
         assertTrue(local.synced.isEmpty())
     }
+
+    /**
+     * Un pull fallido (p. ej. porque el servidor exige actualizar la app) NO debe
+     * dejar el trabajo capturado offline atrapado en el dispositivo: antes el
+     * `sync` hacía pull → push, así que el push nunca llegaba a ejecutarse.
+     */
+    @Test
+    fun pull_failure_still_drains_the_pending_queue() = runTest {
+        val local = FakeSyncLocalStore()
+        local.pending["kardex"] = mutableListOf(
+            PendingRecord(
+                id = "k1",
+                status = "created",
+                data = buildJsonObject {
+                    put("id", "k1")
+                    put("userId", "u1")
+                    put("locationId", "loc1")
+                },
+            ),
+        )
+        val api = FakeSyncApi(pullFails = true)
+        val engine = DefaultSyncEngine(api, local, FakeMediaUploader(), FakeSettingsStore())
+
+        val failure = runCatching { engine.sync() }.exceptionOrNull()
+
+        // Se propaga el error del pull (la app debe actualizarse)...
+        assertTrue(failure is SyncException)
+        // ...pero la cola se vació igualmente.
+        assertNotNull(api.pushedBody)
+        assertEquals(listOf("kardex" to "k1"), local.synced)
+    }
+
+    @Test
+    fun pushOnly_drains_the_queue_without_pulling() = runTest {
+        val local = FakeSyncLocalStore()
+        local.pending["incidents"] = mutableListOf(
+            PendingRecord(id = "i1", status = "created", data = buildJsonObject { put("id", "i1") }),
+        )
+        val api = FakeSyncApi(pullFails = true)
+        val engine = DefaultSyncEngine(api, local, FakeMediaUploader(), FakeSettingsStore())
+
+        engine.pushOnly()
+
+        assertNotNull(api.pushedBody)
+        assertEquals(listOf("incidents" to "i1"), local.synced)
+        // No se aplicó ningún pull: sólo se vació la cola.
+        assertTrue(local.applied.isEmpty())
+    }
+
+    /**
+     * El push es atómico: si el servidor rechaza registros, no aplica nada y
+     * devuelve el detalle. Ese detalle debe llegar a la UI para poder corregir o
+     * descartar el registro; antes se perdía en un mensaje genérico y la cola
+     * quedaba atascada para siempre.
+     */
+    @Test
+    fun rejected_push_surfaces_the_offending_records() = runTest {
+        val local = FakeSyncLocalStore()
+        local.pending["kardex"] = mutableListOf(
+            PendingRecord(id = "k9", status = "created", data = buildJsonObject { put("id", "k9") }),
+        )
+        val rechazo = buildJsonObject {
+            put(
+                "rejected",
+                buildJsonArray {
+                    add(
+                        buildJsonObject {
+                            put("table", "kardex")
+                            put("id", "k9")
+                            put("action", "create")
+                            put("reason", "El punto de control indicado en locationId no existe en el servidor")
+                        },
+                    )
+                },
+            )
+        }
+        val api = FakeSyncApi(
+            pushFailure = ApiResult.Failure(
+                listOf("No se pudo sincronizar"),
+                statusCode = 400,
+                data = rechazo,
+            ),
+        )
+        val engine = DefaultSyncEngine(api, local, FakeMediaUploader(), FakeSettingsStore())
+
+        val failure = runCatching { engine.sync() }.exceptionOrNull()
+
+        val excepcion = assertNotNull(
+            failure as? SyncRejectedException,
+            "el rechazo del servidor debe exponerse como SyncRejectedException",
+        )
+        val rechazos = excepcion.rejections
+        assertEquals(1, rechazos.size)
+        assertEquals("k9", rechazos[0].id)
+        assertTrue(rechazos[0].reason.contains("locationId"))
+        // El trabajo NO se marca como sincronizado: no se pierde.
+        assertTrue(local.synced.isEmpty())
+    }
 }
 
 // ---------------- Fakes ----------------
 
-private class FakeSyncApi(private val pull: SyncPullResponseDto) : SyncApi {
+private class FakeSyncApi(
+    private val pull: SyncPullResponseDto = SyncPullResponseDto(timestamp = 0L),
+    private val pullFails: Boolean = false,
+    private val pushFailure: ApiResult.Failure? = null,
+) : SyncApi {
     var pushedBody: SyncPushBodyDto? = null
+    var pushCalls = 0
 
     override suspend fun pull(lastPulledAt: Long, resetModels: List<String>): ApiResult<SyncPullResponseDto> =
-        ApiResult.Success(pull)
+        if (pullFails) {
+            ApiResult.Failure(listOf("Aplicación desactualizada"), statusCode = 400)
+        } else {
+            ApiResult.Success(pull)
+        }
 
-    override suspend fun push(body: SyncPushBodyDto): ApiResult<Unit> {
+    override suspend fun push(body: SyncPushBodyDto): ApiResult<SyncPushResponseDto> {
         pushedBody = body
-        return ApiResult.Success(Unit)
+        pushCalls++
+        return pushFailure ?: ApiResult.Success(SyncPushResponseDto(applied = true))
     }
 
     override suspend fun hasPendingChanges(lastPulledAt: Long): ApiResult<SyncCheckResponseDto> =

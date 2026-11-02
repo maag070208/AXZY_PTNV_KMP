@@ -1,5 +1,7 @@
 package com.axzydev.checkapp.pages.reportissue
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -12,6 +14,7 @@ import com.axzydev.checkapp.pages.reportissue.viewmodel.ReportIssueEffect
 import com.axzydev.checkapp.pages.reportissue.viewmodel.ReportIssueKind
 import com.axzydev.checkapp.pages.reportissue.viewmodel.ReportIssueViewModel
 import com.axzydev.checkapp.platform.media.CaptureResult
+import com.axzydev.checkapp.platform.media.MediaCaptureHost
 import com.axzydev.checkapp.platform.media.rememberMediaCapture
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -39,16 +42,18 @@ fun ReportIssueRoute(
             }
         }
     }
-
-    ReportIssueScreen(
-        state = state,
-        supportsVideo = mediaCapture.supportsVideo,
-        onCapturePhoto = { mediaCapture.capturePhoto { result -> result.forwardTo(viewModel) } },
-        onCaptureVideo = { mediaCapture.captureVideo { result -> result.forwardTo(viewModel) } },
-        onAction = viewModel::onAction,
-        onBack = onBack,
-        modifier = modifier,
-    )
+    Box(modifier = modifier.fillMaxSize()) {
+        ReportIssueScreen(
+            state = state,
+            supportsVideo = mediaCapture.supportsVideo,
+            onCapturePhoto = { mediaCapture.capturePhoto { result -> result.forwardTo(viewModel) } },
+            onCaptureVideo = { mediaCapture.captureVideo { result -> result.forwardTo(viewModel) } },
+            onAction = viewModel::onAction,
+            onBack = onBack,
+            modifier = modifier,
+        )
+        MediaCaptureHost(mediaCapture)
+    }
 }
 
 private fun CaptureResult.forwardTo(viewModel: ReportIssueViewModel) {

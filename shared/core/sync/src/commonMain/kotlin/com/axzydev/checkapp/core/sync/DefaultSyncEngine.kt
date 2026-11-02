@@ -12,11 +12,25 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.decodeFromJsonElement
 
 /** Error de sincronización con el mensaje devuelto por la API. */
 class SyncException(message: String) : Exception(message) {
     constructor(failure: ApiResult.Failure) : this(failure.firstMessage)
 }
+
+/**
+ * El servidor rechazó registros concretos: al ser un lote **atómico** no aplicó
+ * nada y explica cuáles fallaron y por qué ([rejections]).
+ *
+ * Reintentar tal cual daría el mismo resultado, así que la app debe corregir o
+ * descartar esos registros; mientras tanto el resto de la cola sigue pendiente
+ * (no se pierde nada).
+ */
+class SyncRejectedException(
+    val rejections: List<SyncRejectionDto>,
+    message: String,
+) : Exception(message)
 
 /**
  * Motor de sincronización offline-first (Anexo B):
@@ -37,18 +51,30 @@ class DefaultSyncEngine(
         mutex.withLock { runSync(onStep) }
     }
 
+    /**
+     * Vacía la cola sin hacer pull. Es la salida de emergencia cuando el pull no
+     * es posible (p. ej. el servidor exige actualizar la app): el trabajo
+     * capturado offline se sube igualmente en lugar de quedar atrapado.
+     */
+    override suspend fun pushOnly(onStep: (SyncStep) -> Unit) {
+        mutex.withLock { drainPending(lastPulledAt(), onStep) }
+    }
+
     override suspend fun hasUnsyncedLocalChanges(): Boolean = local.countUnsynced() > 0
 
     override suspend fun hasPendingServerChanges(): Boolean {
-        val lastPulledAt = settings.getLong(SettingsKeys.LAST_SYNC_TIMESTAMP) ?: 0L
+        val lastPulledAt = lastPulledAt()
         return when (val result = api.hasPendingChanges(lastPulledAt)) {
             is ApiResult.Success -> result.data.hasChanges
             is ApiResult.Failure -> false
         }
     }
 
+    private suspend fun lastPulledAt(): Long =
+        settings.getLong(SettingsKeys.LAST_SYNC_TIMESTAMP) ?: 0L
+
     private suspend fun runSync(onStep: (SyncStep) -> Unit) {
-        val lastPulledAt = settings.getLong(SettingsKeys.LAST_SYNC_TIMESTAMP) ?: 0L
+        val lastPulledAt = lastPulledAt()
 
         // ---------- PULL ----------
         onStep(SyncStep.Pull)
@@ -57,7 +83,14 @@ class DefaultSyncEngine(
 
         val pull = when (val result = api.pull(lastPulledAt, resetModels)) {
             is ApiResult.Success -> result.data
-            is ApiResult.Failure -> throw SyncException(result)
+            is ApiResult.Failure -> {
+                // Un pull fallido NO debe dejar la cola atrapada (antes el push
+                // nunca llegaba a ejecutarse). Se intenta vaciar lo pendiente y,
+                // si el push reporta rechazos, esos son el error más accionable.
+                val drained = runCatching { drainPending(lastPulledAt, onStep) }
+                (drained.exceptionOrNull() as? SyncRejectedException)?.let { throw it }
+                throw SyncException(result)
+            }
         }
 
         val details = pull.changes.mapNotNull { (model, change) ->
@@ -72,9 +105,14 @@ class DefaultSyncEngine(
         settings.putLong(SettingsKeys.LAST_SYNC_TIMESTAMP, pull.timestamp)
 
         // ---------- MEDIA + PUSH ----------
+        drainPending(pull.timestamp, onStep)
+    }
+
+    /** Medios → push → marcar `synced`. Compartido por el sync completo y el push-only. */
+    private suspend fun drainPending(lastPulledAt: Long, onStep: (SyncStep) -> Unit) {
         val pending = DEVICE_WRITABLE_TABLES.associateWith { local.readPending(it).toMutableList() }
         uploadOfflineMedia(pending, onStep)
-        pushChanges(pending, pull.timestamp, onStep)
+        pushChanges(pending, lastPulledAt, onStep)
     }
 
     private suspend fun uploadOfflineMedia(
@@ -131,7 +169,16 @@ class DefaultSyncEngine(
         onStep(SyncStep.Push)
         when (val result = api.push(SyncPushBodyDto(apiChanges, lastPulledAt))) {
             is ApiResult.Success -> Unit
-            is ApiResult.Failure -> throw SyncException(result)
+            is ApiResult.Failure -> {
+                // Si el servidor rechazó registros concretos, se propaga el detalle
+                // (tabla/id/motivo) en lugar de un mensaje genérico: es lo único
+                // que permite corregirlos o descartarlos y desatascar la cola.
+                val rejections = parseRejections(result)
+                if (rejections.isNotEmpty()) {
+                    throw SyncRejectedException(rejections, rejectionMessage(rejections))
+                }
+                throw SyncException(result)
+            }
         }
 
         pending.forEach { (table, records) ->
@@ -143,6 +190,24 @@ class DefaultSyncEngine(
     }
 
     private data class MediaJob(val table: String, val recordId: String, val uri: String)
+
+    /**
+     * Extrae `data.rejected[]` del error del servidor (lote rechazado).
+     * Devuelve vacío si el fallo no trae ese detalle (red, 5xx, validación...).
+     */
+    private fun parseRejections(failure: ApiResult.Failure): List<SyncRejectionDto> {
+        val payload = failure.data as? JsonObject ?: return emptyList()
+        val array = payload["rejected"] as? JsonArray ?: return emptyList()
+        return array.mapNotNull { element ->
+            runCatching { json.decodeFromJsonElement(SyncRejectionDto.serializer(), element) }.getOrNull()
+        }
+    }
+
+    private fun rejectionMessage(rejections: List<SyncRejectionDto>): String {
+        val muestra = rejections.take(3).joinToString("; ") { "${it.table}/${it.id}: ${it.reason}" }
+        val resto = if (rejections.size > 3) " (+${rejections.size - 3} más)" else ""
+        return "El servidor rechazó ${rejections.size} registro(s): $muestra$resto"
+    }
 
     private fun localUris(record: PendingRecord): List<String> {
         val media = record.data["media"] as? JsonArray ?: return emptyList()
@@ -168,6 +233,7 @@ class DefaultSyncEngine(
     private companion object {
         val MEDIA_TABLES = listOf("incidents", "maintenances", "kardex")
         val LOCAL_URI_PREFIXES = listOf("file://", "/", "ph://", "content://")
+        val json = Json { ignoreUnknownKeys = true }
     }
 }
 

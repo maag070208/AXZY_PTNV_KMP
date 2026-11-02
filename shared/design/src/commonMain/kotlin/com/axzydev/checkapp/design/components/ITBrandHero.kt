@@ -19,6 +19,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -72,8 +75,12 @@ fun ITBrandHero(
         ) {
             BrandMark(
                 size = if (compact) 32 else 44,
-                background = Color.White.copy(alpha = AxzyAlpha.onBrandSurface),
-                contentColor = Color.White,
+                // La marca va sobre blanco OPACO y sin teñir. El PNG del logo no
+                // tiene transparencia: al teñirlo de blanco —que es lo que hacía
+                // antes— el resultado era un cuadrado blanco liso y la marca
+                // desaparecía. Se veía en las dos cabeceras de inicio.
+                background = Color.White,
+                contentColor = Color.Unspecified,
             )
 
             Column(modifier = Modifier.weight(1f)) {
@@ -155,3 +162,36 @@ object HeroSizes {
     val compact: Dp = 64.dp
     val regular: Dp = 132.dp
 }
+
+/**
+ * Acción dentro de la cabecera de marca (abrir menú, sincronizar).
+ *
+ * Sobre el degradado, un botón con el fondo de superficie de la app desaparece:
+ * el contenedor va en blanco translúcido —el mismo recurso que la marca dentro de
+ * [ITBrandHero]— y el contenido en blanco. Recibe `content` en vez de un icono
+ * porque el menú se dibuja con barras ([MenuBars]) y no con un vector.
+ */
+@Composable
+fun ITHeroIconButton(
+    contentDescription: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    ITTouchableOpacity(
+        onClick = onClick,
+        modifier = modifier.semantics { this.contentDescription = contentDescription },
+        role = Role.Button,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(HERO_ACTION_SIZE)
+                .background(Color.White.copy(alpha = AxzyAlpha.onBrandSurface), AxzyShape.md),
+            contentAlignment = Alignment.Center,
+        ) {
+            content()
+        }
+    }
+}
+
+private val HERO_ACTION_SIZE = 40.dp

@@ -8,9 +8,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
@@ -33,6 +36,7 @@ import com.axzydev.checkapp.design.theme.Tone
 import com.axzydev.checkapp.design.theme.palette
 import com.axzydev.checkapp.pages.sync.viewmodel.ServerStatus
 import com.axzydev.checkapp.pages.sync.viewmodel.SyncAction
+import com.axzydev.checkapp.pages.sync.viewmodel.SyncRejectionUi
 import com.axzydev.checkapp.pages.sync.viewmodel.SyncRunStatus
 import com.axzydev.checkapp.pages.sync.viewmodel.SyncStepStatus
 import com.axzydev.checkapp.pages.sync.viewmodel.SyncUiState
@@ -114,9 +118,17 @@ fun SyncScreen(
                 UploadBar(upload)
             }
 
-            state.error?.let { error ->
+            if (state.rejections.isNotEmpty()) {
                 Spacer(Modifier.height(AxzySpacing.md))
-                ITText(text = error, color = AxzyColors.error, style = AxzyType.itemMeta)
+                SyncRejectionsCard(state.rejections)
+            } else {
+                // El mensaje crudo del motor nombra tablas (`incidents/k1: …`) y
+                // repetiría lo que ya dice la tarjeta de rechazos. Sólo se muestra
+                // cuando el fallo NO es un rechazo: ahí es lo único que hay.
+                state.error?.let { error ->
+                    Spacer(Modifier.height(AxzySpacing.md))
+                    ITText(text = error, color = AxzyColors.error, style = AxzyType.itemMeta)
+                }
             }
 
             Spacer(Modifier.height(AxzySpacing.lg))
@@ -147,6 +159,106 @@ fun SyncScreen(
         }
     }
 }
+
+/**
+ * Registros que el servidor rechazó.
+ *
+ * Va aparte del mensaje de error porque **no es un fallo de red**: reintentar tal
+ * cual da lo mismo. El registro sigue guardado en el celular, así que el guardia
+ * necesita saber cuál es y qué tiene mal.
+ */
+@Composable
+private fun SyncRejectionsCard(rejections: List<SyncRejectionUi>) {
+    val colors = Tone.Warning.palette
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(AxzySpacing.sm),
+        ) {
+            Icon(
+                imageVector = ITIcons.Warning,
+                contentDescription = null,
+                tint = colors.onSoft,
+                modifier = Modifier.size(18.dp),
+            )
+            ITText(
+                text = if (rejections.size == 1) {
+                    "1 registro no se pudo subir"
+                } else {
+                    "${rejections.size} registros no se pudieron subir"
+                },
+                color = AxzyColors.onSurface,
+                style = AxzyType.cardTitle,
+                modifier = Modifier.weight(1f),
+            )
+        }
+
+        Spacer(Modifier.height(AxzySpacing.xs))
+
+        ITText(
+            text = "Siguen guardados en el celular y se subirán cuando el dato esté " +
+                "corregido. El resto de la sincronización sí se completó.",
+            color = AxzyColors.onSurfaceVariant,
+            style = AxzyType.itemMeta,
+        )
+
+        Spacer(Modifier.height(AxzySpacing.md))
+
+        // La lista lleva su propio scroll y un alto máximo: un lote puede traer
+        // muchos rechazos y la pantalla no puede crecer hasta empujar el botón de
+        // reintentar fuera de la vista.
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = REJECTIONS_MAX_HEIGHT)
+                .verticalScroll(rememberScrollState()),
+        ) {
+            rejections.forEachIndexed { index, rejection ->
+                if (index > 0) {
+                    Spacer(Modifier.height(AxzySpacing.md))
+                }
+                RejectionRow(rejection)
+            }
+        }
+    }
+}
+
+/** Fila de un rechazo: qué tabla, qué se hizo, por qué falló y qué registro es. */
+@Composable
+private fun RejectionRow(rejection: SyncRejectionUi) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(AxzySpacing.sm),
+        ) {
+            ITText(
+                text = rejection.tableLabel,
+                color = AxzyColors.onSurface,
+                style = AxzyType.itemTitle,
+                modifier = Modifier.weight(1f),
+            )
+            ITBadge(text = rejection.actionLabel, tone = Tone.Neutral)
+        }
+
+        Spacer(Modifier.height(AxzySpacing.xs))
+
+        ITText(
+            text = rejection.reason,
+            color = AxzyColors.error,
+            style = AxzyType.itemMeta,
+        )
+
+        ITText(
+            text = "#${rejection.shortId}",
+            color = AxzyColors.onSurfaceVariant,
+            style = AxzyType.labelSmall,
+        )
+    }
+}
+
+/** Alto máximo de la lista de rechazos antes de que haga scroll. */
+private val REJECTIONS_MAX_HEIGHT = 232.dp
 
 /** Un paso del proceso, con su marca de estado. */
 @Composable

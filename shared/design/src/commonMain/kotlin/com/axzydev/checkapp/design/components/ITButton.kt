@@ -105,7 +105,10 @@ fun ITButton(
     // relleno que lo sostenga, sí se apaga del todo.
     val labelColor = when {
         solid && outlined -> colors.solid
-        solid -> AxzyColors.surface
+        // `onSolid` y no `AxzyColors.surface`: la superficie es blanca en claro pero
+        // **oscura en oscuro**, así que el botón de marca salía con la etiqueta casi
+        // invisible. `onSolid` es el color pensado para ir encima del relleno.
+        solid -> colors.onSolid
         outlined -> AxzyColors.onSurfaceVariant
         else -> colors.onSoft
     }

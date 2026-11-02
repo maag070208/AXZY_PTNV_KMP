@@ -15,6 +15,10 @@ import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
 import io.ktor.http.isSuccess
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.serializer
 
 @PublishedApi
 internal fun HttpRequestBuilder.applyQuery(query: Map<String, Any?>) {
@@ -49,6 +53,7 @@ internal fun transportErrorMessage(t: Throwable): String = when (t) {
 class ApiClient(
     @PublishedApi internal val client: HttpClient,
     @PublishedApi internal val baseUrl: String,
+    @PublishedApi internal val json: Json = Json { ignoreUnknownKeys = true },
 ) {
 
     suspend inline fun <reified T> get(
@@ -83,24 +88,49 @@ class ApiClient(
             return ApiResult.Failure(listOf(transportErrorMessage(t)), networkError = true)
         }
 
-        if (response.status.value >= 500) {
+        val status = response.status.value
+
+        if (status >= 500) {
             return ApiResult.Failure(
-                listOf("Servidor no disponible (${response.status.value})"),
+                listOf("Servidor no disponible ($status)"),
                 networkError = true,
+                statusCode = status,
             )
         }
 
-        val envelope = try {
-            response.body<ApiEnvelope<T>>()
+        // El cuerpo se lee SIN tipar a propósito. En una respuesta de error, `data`
+        // puede no encajar con el tipo de la operación (el `400` del push de sync
+        // trae `rejected[]`); deserializarlo directamente a T provocaba perder los
+        // mensajes reales del servidor y reportar "Respuesta inválida".
+        val raw: JsonElement = try {
+            response.body<JsonElement>()
         } catch (t: Throwable) {
-            return ApiResult.Failure(listOf("Respuesta inválida del servidor"))
+            return ApiResult.Failure(listOf("Respuesta inválida del servidor"), statusCode = status)
         }
 
-        return if (response.status.isSuccess() && envelope.success) {
-            @Suppress("UNCHECKED_CAST")
-            ApiResult.Success(envelope.data ?: (Unit as T), envelope.messages)
-        } else {
-            ApiResult.Failure(envelope.messages.ifEmpty { listOf("Error ${response.status.value}") })
+        val envelope: ApiEnvelope<JsonElement> = try {
+            json.decodeFromJsonElement(ApiEnvelope.serializer(JsonElement.serializer()), raw)
+        } catch (t: Throwable) {
+            return ApiResult.Failure(listOf("Respuesta inválida del servidor"), statusCode = status)
         }
+
+        if (!response.status.isSuccess() || !envelope.success) {
+            return ApiResult.Failure(
+                envelope.messages.ifEmpty { listOf("Error $status") },
+                statusCode = status,
+                data = envelope.data,
+            )
+        }
+
+        // Éxito: recién aquí se convierte `data` al tipo esperado.
+        val data: T = try {
+            val element = envelope.data
+            if (element == null || element is JsonNull) Unit as T
+            else json.decodeFromJsonElement(serializer<T>(), element)
+        } catch (t: Throwable) {
+            return ApiResult.Failure(listOf("Respuesta inválida del servidor"), statusCode = status)
+        }
+
+        return ApiResult.Success(data, envelope.messages)
     }
 }

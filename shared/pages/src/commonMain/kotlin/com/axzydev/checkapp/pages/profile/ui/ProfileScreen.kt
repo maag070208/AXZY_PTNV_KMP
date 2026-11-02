@@ -11,14 +11,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.axzydev.checkapp.design.components.ITActionTile
 import com.axzydev.checkapp.design.components.ITAvatar
 import com.axzydev.checkapp.design.components.ITBadge
 import com.axzydev.checkapp.design.components.ITButton
 import com.axzydev.checkapp.design.components.ITCard
 import com.axzydev.checkapp.design.components.ITScreenScaffold
+import com.axzydev.checkapp.design.components.ITSectionTitle
 import com.axzydev.checkapp.design.components.ITText
 import com.axzydev.checkapp.design.components.ITTextField
 import com.axzydev.checkapp.design.components.ScreenState
+import com.axzydev.checkapp.core.datastore.ThemeMode
 import com.axzydev.checkapp.design.theme.AxzyColors
 import com.axzydev.checkapp.design.theme.AxzySpacing
 import com.axzydev.checkapp.design.theme.AxzyType
@@ -88,6 +91,26 @@ fun ProfileScreen(
                 }
             }
         }
+
+        // Apariencia: el ajuste que el usuario busca aquí cuando la app "se ve
+        // oscura" y no sabe por qué. Por defecto sigue al teléfono.
+        ITSectionTitle(text = "Apariencia")
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(AxzySpacing.sm),
+        ) {
+            ThemeMode.entries.forEach { mode ->
+                val selected = mode == state.themeMode
+                ITActionTile(
+                    label = mode.label(),
+                    onClick = { onAction(ProfileAction.SetTheme(mode)) },
+                    tone = if (selected) Tone.Brand else Tone.Neutral,
+                    selected = selected,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+
 
         ITCard(modifier = Modifier.fillMaxWidth()) {
             ITText(
@@ -188,3 +211,10 @@ fun ProfileScreen(
 }
 
 private const val MIN_PASSWORD = 6
+
+/** Nombre visible del modo de color. */
+private fun ThemeMode.label(): String = when (this) {
+    ThemeMode.SYSTEM -> "Sistema"
+    ThemeMode.LIGHT -> "Claro"
+    ThemeMode.DARK -> "Oscuro"
+}

@@ -6,5 +6,5 @@ import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 
 val reportIssuePageModule: Module = module {
-    viewModel { ReportIssueViewModel(get(), get(), get(), get()) }
+    viewModel { ReportIssueViewModel(get(), get(), get(), get(), get()) }
 }

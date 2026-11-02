@@ -27,3 +27,17 @@ interface MediaCaptureLauncher {
 /** Recuerda un [MediaCaptureLauncher] ligado al ciclo de vida de la composición. */
 @Composable
 expect fun rememberMediaCapture(): MediaCaptureLauncher
+
+/**
+ * Dibuja la cámara **de la app** mientras hay una foto pendiente.
+ *
+ * Capturar con el contrato del sistema abre la aplicación de cámara del teléfono, con
+ * su zoom, su volteo de cámara y sus ajustes: demasiado para lo único que se hace
+ * aquí, que es encuadrar un punto y disparar. Esto pinta sólo el encuadre y el
+ * disparador.
+ *
+ * Se coloca **una vez**, en la pantalla que captura, encima del contenido. Con la
+ * cámara del sistema esto no hacía falta porque era otra actividad la que aparecía.
+ */
+@Composable
+expect fun MediaCaptureHost(launcher: MediaCaptureLauncher)

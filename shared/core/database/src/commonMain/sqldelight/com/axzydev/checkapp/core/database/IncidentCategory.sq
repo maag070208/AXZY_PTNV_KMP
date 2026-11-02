@@ -5,3 +5,14 @@ SELECT * FROM incident_categories WHERE type = ? ORDER BY name;
 
 selectAllCategories:
 SELECT * FROM incident_categories ORDER BY name;
+
+-- Sub-tipos. Se ordenan por `value`, que es el nombre legible que se pinta: `name`
+-- es el código interno (FUGA_AGUA) y no sirve para ordenar lo que lee una persona.
+selectTypesByCategory:
+SELECT * FROM incident_types WHERE category_id = ? ORDER BY value;
+
+selectTypesByCategoryType:
+SELECT t.* FROM incident_types t
+JOIN incident_categories c ON c.id = t.category_id
+WHERE c.type = ?
+ORDER BY t.value;

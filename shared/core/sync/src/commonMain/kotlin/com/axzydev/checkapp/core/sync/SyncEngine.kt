@@ -35,6 +35,16 @@ val RESET_MODELS: List<String> = listOf(
 
 interface SyncEngine {
     suspend fun sync(onStep: (SyncStep) -> Unit = {})
+
+    /**
+     * Vacía la cola local SIN hacer pull (medios → push → marcar `synced`).
+     *
+     * Necesario porque un pull fallido (p. ej. por versión desactualizada, que el
+     * servidor rechaza con 400) dejaría el trabajo capturado offline atrapado en
+     * el dispositivo: el sync normal hace pull → push y nunca llega al push.
+     */
+    suspend fun pushOnly(onStep: (SyncStep) -> Unit = {})
+
     suspend fun hasUnsyncedLocalChanges(): Boolean
     suspend fun hasPendingServerChanges(): Boolean
 }
@@ -42,6 +52,7 @@ interface SyncEngine {
 /** Implementación no-op para previews y pruebas que no requieren red. */
 class NoopSyncEngine : SyncEngine {
     override suspend fun sync(onStep: (SyncStep) -> Unit) = Unit
+    override suspend fun pushOnly(onStep: (SyncStep) -> Unit) = Unit
     override suspend fun hasUnsyncedLocalChanges(): Boolean = false
     override suspend fun hasPendingServerChanges(): Boolean = false
 }

@@ -33,7 +33,11 @@ class DefaultSessionRepository(
         return session
     }
 
-    override suspend fun login(username: String, password: String): ApiResult<Session> {
+    override suspend fun login(
+        username: String,
+        password: String,
+        remember: Boolean,
+    ): ApiResult<Session> {
         return when (val result = authApi.login(username, password)) {
             is ApiResult.Success -> {
                 val session = Session.fromToken(result.data)
@@ -41,7 +45,10 @@ class DefaultSessionRepository(
                 if (session.isExpired(nowEpochSeconds())) {
                     return ApiResult.Failure(listOf("La sesión recibida ya expiró"))
                 }
-                persist(session)
+                // Con "Recordarme" apagado la sesión vive sólo en memoria: al
+                // reiniciar la app se vuelve a pedir credenciales (dispositivo
+                // compartido entre guardias).
+                if (remember) persist(session) else apply(session)
                 ApiResult.Success(session)
             }
 

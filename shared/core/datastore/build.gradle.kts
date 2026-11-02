@@ -20,6 +20,9 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             api(project(":shared:core:common"))
+            // La preferencia de tema expone un `StateFlow`: el tema cambia en el
+            // momento, no al reiniciar.
+            implementation(libs.kotlinx.coroutines.core)
         }
         androidMain.dependencies {
             implementation(libs.androidx.datastore.preferences)

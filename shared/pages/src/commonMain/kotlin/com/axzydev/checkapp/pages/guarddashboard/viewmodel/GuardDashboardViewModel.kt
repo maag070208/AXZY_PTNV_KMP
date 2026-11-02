@@ -11,8 +11,10 @@ import com.axzydev.checkapp.entities.round.model.RoundStatus
 import com.axzydev.checkapp.entities.session.repository.SessionRepository
 import com.axzydev.checkapp.features.panic.model.FlushPanicQueueUseCase
 import com.axzydev.checkapp.features.panic.model.TriggerPanicUseCase
+import com.axzydev.checkapp.features.roundcontrol.model.CloseAbandonedRoundUseCase
 import com.axzydev.checkapp.features.roundcontrol.model.EndRoundUseCase
 import com.axzydev.checkapp.features.roundcontrol.model.StartRoundUseCase
+import com.axzydev.checkapp.features.scanqr.model.MatchLocationUseCase
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -28,6 +30,8 @@ class GuardDashboardViewModel(
     private val kardex: KardexRepository,
     private val startRound: StartRoundUseCase,
     private val endRound: EndRoundUseCase,
+    private val closeAbandonedRound: CloseAbandonedRoundUseCase,
+    private val matchLocation: MatchLocationUseCase,
     private val triggerPanicAlert: TriggerPanicUseCase,
     private val flushPanicQueue: FlushPanicQueueUseCase,
 ) : ViewModel() {
@@ -45,11 +49,59 @@ class GuardDashboardViewModel(
     fun onAction(action: GuardDashboardAction) {
         when (action) {
             GuardDashboardAction.Refresh -> refresh()
-            is GuardDashboardAction.StartRoute -> start(action.routeId)
+            GuardDashboardAction.RequestStart -> requestStart()
+            is GuardDashboardAction.PickRoute -> pick(action.routeId)
+            is GuardDashboardAction.RequestStartRoute -> requestStartRoute(action.routeId)
+            GuardDashboardAction.ConfirmStart -> confirmStart()
+            GuardDashboardAction.CancelStart -> _state.update { it.copy(pendingStart = null) }
+            GuardDashboardAction.DismissRoutePicker -> _state.update { it.copy(routePickerOpen = false) }
+            GuardDashboardAction.OpenScanner -> _state.update { it.copy(scanning = true) }
+            GuardDashboardAction.CloseScanner -> _state.update { it.copy(scanning = false) }
+            is GuardDashboardAction.Scanned -> resolveScan(action.code)
             GuardDashboardAction.EndRound -> end()
             GuardDashboardAction.TriggerPanic -> panic()
             GuardDashboardAction.DismissPanic -> _state.update { it.copy(panic = null) }
         }
+    }
+
+    /**
+     * Sin ruta activa, el bloque del escáner: con una sola ruta pide confirmación,
+     * con varias pregunta cuál. Antes iniciaba la primera de la lista sin
+     * preguntar, y con dos rutas asignadas eso es elegir por el guardia.
+     *
+     * Con una sola ruta **también** se confirma: iniciar una ronda es un
+     * compromiso del turno y no debe poder dispararse por un toque accidental al
+     * guardar el teléfono en el bolsillo.
+     */
+    private fun requestStart() {
+        when (val routes = _state.value.routes) {
+            emptyList<RouteUi>() -> Unit
+            else -> if (routes.size == 1) {
+                requestStartRoute(routes.first().id)
+            } else {
+                openPicker()
+            }
+        }
+    }
+
+    private fun pick(routeId: String) {
+        _state.update { it.copy(routePickerOpen = false) }
+        start(routeId)
+    }
+
+    /** Desde la fila de la ruta: siempre con confirmación, porque ya hay una elegida. */
+    private fun requestStartRoute(routeId: String) {
+        val route = _state.value.routes.firstOrNull { it.id == routeId } ?: return
+        _state.update { it.copy(pendingStart = route) }
+    }
+
+    private fun confirmStart() {
+        val route = _state.value.pendingStart ?: return
+        start(route.id)
+    }
+
+    private fun openPicker() {
+        _state.update { it.copy(routePickerOpen = true) }
     }
 
     private suspend fun load() {
@@ -57,6 +109,11 @@ class GuardDashboardViewModel(
         runCatching { flushPanicQueue() }
         val session = sessionRepository.sessionState.value ?: return
         _state.update { it.copy(loading = true, error = null, userName = session.fullName) }
+
+        // Antes de mirar si hay ronda en curso: la que quedó abierta de un turno
+        // anterior se cierra aquí. Si no, el pull la trae del servidor y el home la
+        // pinta como "en ruta" —parecía que sincronizar iniciaba la ruta—.
+        runCatching { closeAbandonedRound(session.userId) }
 
         val routes = recurringRoutes.activeRoutes(session.clientId)
         val round = rounds.inProgressByGuard(session.userId)
@@ -98,9 +155,35 @@ class GuardDashboardViewModel(
     private fun start(routeId: String) {
         viewModelScope.launch {
             val session = sessionRepository.sessionState.value ?: return@launch
+            _state.update { it.copy(starting = true) }
             runCatching { startRound(session.userId, session.clientId, routeId) }
                 .onFailure { error -> _effects.send(GuardDashboardEffect.Error(error.message ?: "No se pudo iniciar la ruta")) }
             load()
+            _state.update { it.copy(starting = false, pendingStart = null, routePickerOpen = false) }
+        }
+    }
+
+    /**
+     * Resuelve el código escaneado **sin salir del panel**.
+     *
+     * El escáner se abre encima del inicio: antes se navegaba a otra pantalla, y el
+     * guardia perdía de vista la ruta y el avance para volver a entrar.
+     */
+    private fun resolveScan(code: String) {
+        val trimmed = code.trim()
+        if (trimmed.isEmpty() || _state.value.resolvingScan) return
+        _state.update { it.copy(resolvingScan = true) }
+
+        viewModelScope.launch {
+            val clientId = sessionRepository.sessionState.value?.clientId
+            val location = runCatching { matchLocation(trimmed, clientId) }.getOrNull()?.location
+            _state.update { it.copy(resolvingScan = false, scanning = false) }
+
+            if (location == null) {
+                _effects.send(GuardDashboardEffect.Error("Ese código no es de un punto de esta ronda"))
+            } else {
+                _effects.send(GuardDashboardEffect.OpenCheck(location.id))
+            }
         }
     }
 

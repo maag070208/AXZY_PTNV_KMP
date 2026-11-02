@@ -29,6 +29,38 @@ data class SyncPushBodyDto(
     val lastPulledAt: Long,
 )
 
+/** Conteo por tabla de lo aplicado por el servidor. */
+@Serializable
+data class SyncTableCountDto(
+    val created: Int = 0,
+    val updated: Int = 0,
+    val deleted: Int = 0,
+)
+
+/**
+ * Registro que el servidor NO pudo aplicar, con el motivo exacto.
+ *
+ * El push es atómico: si hay rechazos no se aplica nada y el servidor responde
+ * `400` con `data.rejected[]`. Antes ese detalle se perdía y la cola quedaba
+ * atascada con un mensaje genérico, sin saber qué registro fallaba ni por qué.
+ */
+@Serializable
+data class SyncRejectionDto(
+    val table: String = "",
+    val id: String = "",
+    val action: String = "",
+    val reason: String = "",
+)
+
+/** Respuesta de `POST /sync` cuando el lote SÍ se aplicó (200). */
+@Serializable
+data class SyncPushResponseDto(
+    val applied: Boolean = true,
+    val summary: Map<String, SyncTableCountDto> = emptyMap(),
+    val ignoredTables: List<String> = emptyList(),
+    val rejected: List<SyncRejectionDto> = emptyList(),
+)
+
 /** Respuesta de `GET /sync/check`. */
 @Serializable
 data class SyncCheckResponseDto(

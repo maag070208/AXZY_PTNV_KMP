@@ -1,5 +1,7 @@
 package com.axzydev.checkapp.core.common.result
 
+import kotlinx.serialization.json.JsonElement
+
 /**
  * Resultado de una operación contra la API o la base local.
  *
@@ -18,6 +20,18 @@ sealed interface ApiResult<out T> {
     data class Failure(
         val messages: List<String>,
         val networkError: Boolean = false,
+        /** Código HTTP cuando el servidor respondió (`null` si no hubo respuesta). */
+        val statusCode: Int? = null,
+        /**
+         * Cuerpo de `data` del sobre de error, sin tipar.
+         *
+         * Hace falta porque algunos errores traen información accionable que no
+         * encaja en el tipo de la operación: el `POST /sync` responde `400` con
+         * `data.rejected[]` (registros que el servidor no pudo aplicar y el por
+         * qué). Sin esto el cliente perdía el detalle y la cola offline quedaba
+         * atascada con un mensaje genérico.
+         */
+        val data: JsonElement? = null,
     ) : ApiResult<Nothing> {
         val firstMessage: String get() = messages.firstOrNull() ?: "Error desconocido"
     }

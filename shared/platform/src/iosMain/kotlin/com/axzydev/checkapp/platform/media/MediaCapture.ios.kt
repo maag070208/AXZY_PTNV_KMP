@@ -140,3 +140,13 @@ private class PickerDelegate :
         onCancel?.invoke()
     }
 }
+
+/**
+ * En iOS no hay host: la captura la hace `UIImagePickerController`, que ya se presenta
+ * a pantalla completa desde `capturePhoto`/`captureVideo`.
+ *
+ * Queda pendiente lo mismo que en Android se acaba de resolver —una cámara propia, sin
+ * zoom ni volteo— con `AVCaptureSession` y una vista propia.
+ */
+@Composable
+actual fun MediaCaptureHost(launcher: MediaCaptureLauncher) = Unit

@@ -43,6 +43,29 @@ object AxzyGradients {
         end = Offset(endX, endY),
     )
 
+    /**
+     * Rampa de las pantallas de autenticación (Get Started y Login).
+     *
+     * Arranca en `brand500` y **no** en `brand400`: el blanco sobre `brand400`
+     * (`#3DB489`) da 2.60:1 y no pasa ni el 3:1 de texto grande de WCAG. Con
+     * `brand500` el titular grande cumple (3.23:1) y el texto pequeño queda sobre
+     * la zona `brand700`-`brand800` (6.45:1 y 9.75:1).
+     *
+     * Comparte la forma de [brandRamp] (anclada a unos límites en px) porque el
+     * verde se pinta a pantalla completa y la hoja tapa el resto: la rampa debe
+     * terminar siempre a la misma altura.
+     */
+    fun authRamp(endX: Float, endY: Float): Brush = Brush.linearGradient(
+        colors = listOf(Palette.brand500, Palette.brand700, Palette.brand800),
+        start = Offset(0f, 0f),
+        end = Offset(endX, endY),
+    )
+
+    /** Eco del degradado de autenticación para pantallas que no llevan hoja. */
+    val auth = Brush.linearGradient(
+        colors = listOf(Palette.brand500, Palette.brand700, Palette.brand800),
+    )
+
     /** Cabecera más suave, para pantallas de detalle. */
     val heroSoft = Brush.linearGradient(
         colors = listOf(Palette.brand400, Palette.brand600),

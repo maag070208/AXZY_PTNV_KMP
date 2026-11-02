@@ -37,6 +37,7 @@ kotlin {
             implementation(libs.compose.ui)
         }
         androidMain.dependencies {
+            implementation(libs.play.services.maps)
             implementation(libs.koin.android)
             implementation(libs.androidx.activity.compose)
             implementation(libs.androidx.core.ktx)
@@ -45,6 +46,8 @@ kotlin {
             implementation(libs.androidx.camera.camera2)
             implementation(libs.androidx.camera.lifecycle)
             implementation(libs.androidx.camera.view)
+            // Grabadora propia: el vídeo también se graba dentro de la app.
+            implementation(libs.androidx.camera.video)
             implementation(libs.mlkit.barcode.scanning)
         }
         commonTest.dependencies {

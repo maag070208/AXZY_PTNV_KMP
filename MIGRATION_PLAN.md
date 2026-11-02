@@ -1015,6 +1015,39 @@ POST /sync
   uniform_checks` (`DEVICE_WRITABLE_TABLES`).
 - **Tras `success`**: marcar `_status='synced'` en los registros empujados.
 
+### B.4.1 Respuesta del push (contrato verificado contra la API real)
+
+El lote es **atómico**: o se aplica completo o no se aplica nada.
+
+**200 — aplicado:**
+```json
+{ "success": true,
+  "data": { "applied": true,
+            "summary": { "kardex": { "created": 2, "updated": 0, "deleted": 1 } },
+            "ignoredTables": [], "rejected": [] },
+  "messages": ["Success"] }
+```
+
+**400 — rechazado (nada aplicado):** trae el detalle por registro, que llega en
+`ApiResult.Failure.data` (por eso `Failure` expone `data` y `statusCode`):
+```json
+{ "success": false,
+  "data": { "rejected": [ { "table": "kardex", "id": "uuid", "action": "create",
+                            "reason": "El punto de control indicado en locationId no existe en el servidor" } ],
+            "ignoredTables": [] },
+  "messages": ["No se pudo sincronizar: 1 registro(s) no se pudieron aplicar"] }
+```
+
+Reglas de manejo:
+- Si `rejected` no está vacío → **`SyncRejectedException(rejections)`**. No se marca nada como
+  `synced` (el trabajo no se pierde) y **no se reintenta a ciegas**: reintentar daría el mismo
+  resultado. La UI debe mostrar tabla/id/motivo para corregir o descartar el registro.
+- Si `ignoredTables` no está vacío → el dispositivo intentó empujar una tabla que no administra;
+  antes se descartaba en silencio con `200` (pérdida de datos). Ahora se reporta y es un bug del cliente.
+- `push` está tipado como `ApiResult<SyncPushResponseDto>` (no `Unit`): el servidor devuelve un
+  objeto en `data` y tiparlo como `Unit` hacía fallar la deserialización, de modo que **todo push
+  parecía fallar** y los registros nunca se marcaban como sincronizados.
+
 ## B.5 Endpoints de soporte
 
 | Función | Endpoint |
@@ -1037,6 +1070,15 @@ data class ModelCount(val model: String, val count: Int)
 
 interface SyncEngine {
     suspend fun sync(onStep: (SyncStep) -> Unit = {})
+
+    /**
+     * Vacía la cola SIN pull (medios → push → synced). Necesario porque `sync()`
+     * hace pull → push: si el pull falla (p. ej. versión desactualizada, que el
+     * servidor rechaza con 400) el push nunca llegaría a ejecutarse y el trabajo
+     * capturado offline quedaría atrapado en el dispositivo.
+     */
+    suspend fun pushOnly(onStep: (SyncStep) -> Unit = {})
+
     suspend fun hasUnsyncedLocalChanges(): Boolean
     suspend fun hasPendingServerChanges(): Boolean
 }
@@ -1058,7 +1100,11 @@ interface MediaUploader {
 - **Single-flight**: `Mutex`; si hay sync en curso, el nuevo intento reusa la operación.
 - **Background**: se dispara al guardar `shift_handover`/`uniform_check` y en reconexión; si no hay red,
   retorna `false` sin lanzar.
-- **Errores**: lo pendiente queda intacto y reintentable; la cola de medios preserva URLs ya subidas.
+- **Errores**: lo pendiente queda intacto y reintentable; la cola de medios preserva URLs ya subidas
+  (se persisten en SQLite archivo por archivo, así que un corte a mitad no re-sube lo ya subido).
+- **Pull fallido ≠ cola atascada**: si el pull falla, `sync()` intenta igualmente el push-only para
+  vaciar lo pendiente y luego propaga el error del pull (el usuario sigue viendo que debe actualizar).
+- **Rechazos definitivos**: `SyncRejectedException` con el detalle; no se reintenta a ciegas.
 
 ---
 

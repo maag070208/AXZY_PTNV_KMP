@@ -32,5 +32,12 @@ kotlin {
             implementation(libs.kotlin.test)
             implementation(libs.kotlinx.coroutines.test)
         }
+        // El store real se prueba contra SQLite de verdad: es la única forma de
+        // cubrir el mapeo de columnas (`PRAGMA table_info` → JSON de la API).
+        // Va en el source set de host y no en `commonTest` porque el driver JDBC
+        // sólo existe en JVM (en `commonTest` rompería la compilación de iOS).
+        getByName("androidHostTest").dependencies {
+            implementation(libs.sqldelight.sqlite.driver)
+        }
     }
 }

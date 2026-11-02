@@ -13,9 +13,9 @@ import com.axzydev.checkapp.core.network.ApiConfig
 import com.axzydev.checkapp.core.network.AppVersionProvider
 import com.axzydev.checkapp.core.network.AuthTokenProvider
 import com.axzydev.checkapp.core.network.createHttpClient
-import com.axzydev.checkapp.core.permissions.GrantedPermissionChecker
-import com.axzydev.checkapp.core.permissions.PermissionChecker
 import org.koin.core.module.Module
+import com.axzydev.checkapp.core.datastore.DefaultThemePreference
+import com.axzydev.checkapp.core.datastore.ThemePreference
 import org.koin.dsl.module
 
 /**
@@ -46,5 +46,5 @@ val appModule: Module = module {
 
     // Implementaciones reales de conectividad/permisos llegan en fases posteriores.
     single<ConnectivityObserver> { FixedConnectivity() }
-    single<PermissionChecker> { GrantedPermissionChecker() }
+    single<ThemePreference> { DefaultThemePreference(get()) }
 }

@@ -7,41 +7,47 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Surface
+import androidx.compose.ui.draw.clip
+import com.axzydev.checkapp.platform.camera.QrScannerView
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.axzydev.checkapp.core.common.time.currentGreeting
 import com.axzydev.checkapp.design.components.ITActionTile
-import com.axzydev.checkapp.design.components.ITAvatar
 import com.axzydev.checkapp.design.components.ITBadge
+import com.axzydev.checkapp.design.components.ITBrandHero
 import com.axzydev.checkapp.design.components.ITButton
+import com.axzydev.checkapp.design.components.ITConfirmDialog
 import com.axzydev.checkapp.design.components.ITEmptyState
 import com.axzydev.checkapp.design.components.ITFeatureBadge
 import com.axzydev.checkapp.design.components.ITFeatureCard
+import com.axzydev.checkapp.design.components.ITHeroIconButton
 import com.axzydev.checkapp.design.components.ITListItem
 import com.axzydev.checkapp.design.components.ITSectionTitle
 import com.axzydev.checkapp.design.components.ITSkeletonList
 import com.axzydev.checkapp.design.components.ITText
 import com.axzydev.checkapp.design.components.ITTouchableOpacity
-import com.axzydev.checkapp.design.components.MenuButton
+import com.axzydev.checkapp.design.components.MenuBars
 import com.axzydev.checkapp.design.icons.ITIcons
 import com.axzydev.checkapp.design.theme.AxzyAlpha
 import com.axzydev.checkapp.design.theme.AxzyColors
@@ -58,19 +64,22 @@ import com.axzydev.checkapp.pages.guarddashboard.viewmodel.RouteUi
 /**
  * Panel del guardia.
  *
- * Tres bloques, en orden de urgencia: **quién eres y en qué estado estás**
- * (cabecera), **qué haces ahora** (el bloque oscuro con la acción principal) y
- * **dónde vas después** (accesos). Debajo, sólo lo que el guardia necesita
- * cuando ya no está en la ruta.
+ * La pantalla se lee de arriba abajo como el turno: **quién eres** (cabecera de
+ * marca), **dónde vas** (el bloque del escáner, o las rutas por iniciar), **qué
+ * reportas** (las dos acciones rápidas) y **qué queda** (los puntos de la ruta).
  *
  * El bloque oscuro es negro y no verde a propósito: el verde se reserva para los
- * botones que inician la acción, así que el sitio de la acción principal no
- * compite con ella.
+ * botones que inician la acción, así que el sitio de la acción principal no compite
+ * con ella.
  *
- * Antes esta pantalla no tenía estados: con el API caído o sin rutas asignadas
- * pintaba el mismo bloque negro vacío, que es un callejón sin salida — te dice
- * que inicies una ruta sin ofrecer ninguna. Ahora hay esqueleto mientras carga,
- * error con reintento, y "sin rutas" con salida.
+ * Iniciar una ruta **siempre pasa por una decisión explícita**: con una sola ruta
+ * el bloque la inicia; con varias pregunta cuál; y tocar una ruta de la lista pide
+ * confirmación. Antes se iniciaba la primera sin preguntar, que con dos rutas
+ * asignadas es elegir por el guardia.
+ *
+ * Los accesos (historial, notificaciones, perfil y salir) se quitaron de aquí: son
+ * los mismos que ya están en el menú lateral, y en el panel del guardia empujaban
+ * los puntos de la ruta —lo único que se consulta a media ronda— fuera de pantalla.
  */
 @Composable
 fun GuardDashboardScreen(
@@ -78,14 +87,10 @@ fun GuardDashboardScreen(
     onAction: (GuardDashboardAction) -> Unit,
     onOpenCheck: (roundId: String, locationId: String) -> Unit,
     onScan: () -> Unit,
-    onOpenRound: (roundId: String) -> Unit,
-    onOpenKardex: () -> Unit,
+    onQrCode: (String) -> Unit,
     onReportIncident: () -> Unit,
     onReportMaintenance: () -> Unit,
-    onOpenProfile: () -> Unit,
-    onOpenNotifications: () -> Unit,
     onSync: () -> Unit,
-    onLogout: () -> Unit,
     modifier: Modifier = Modifier,
     onOpenMenu: () -> Unit = {},
 ) {
@@ -95,14 +100,9 @@ fun GuardDashboardScreen(
     val firstLoad = state.loading && state.routes.isEmpty() && !state.hasActiveRound
 
     Surface(modifier = modifier.fillMaxSize(), color = AxzyColors.background) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .windowInsetsPadding(WindowInsets.safeDrawing),
-        ) {
-            GuardHeader(
+        Column(modifier = Modifier.fillMaxSize()) {
+            GuardHero(
                 userName = state.userName,
-                active = state.hasActiveRound,
                 onOpenMenu = onOpenMenu,
                 onSync = onSync,
             )
@@ -111,9 +111,14 @@ fun GuardDashboardScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
+                    .windowInsetsPadding(
+                        WindowInsets.safeDrawing.only(
+                            WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom,
+                        ),
+                    )
                     .padding(horizontal = AxzySpacing.xl),
             ) {
-                Spacer(Modifier.height(AxzySpacing.md))
+                Spacer(Modifier.height(AxzySpacing.lg))
 
                 when {
                     firstLoad -> ITSkeletonList(rows = 4)
@@ -136,14 +141,21 @@ fun GuardDashboardScreen(
 
                     else -> {
                         if (state.hasActiveRound) {
-                            ActiveScannerCard(
+                            ScanCard(
+                                points = state.points,
+                                scanning = state.scanning,
                                 onScan = onScan,
+                                onQrCode = onQrCode,
+                                onCloseScan = { onAction(GuardDashboardAction.CloseScanner) },
                                 onEnd = { onAction(GuardDashboardAction.EndRound) },
                             )
                         } else {
-                            IdleScannerCard(
+                            StartCard(
                                 routes = state.routes,
-                                onStartRoute = { onAction(GuardDashboardAction.StartRoute(it)) },
+                                onRequestStart = { onAction(GuardDashboardAction.RequestStart) },
+                                onPickRoute = {
+                                    onAction(GuardDashboardAction.RequestStartRoute(it))
+                                },
                                 onSync = onSync,
                             )
                         }
@@ -157,58 +169,61 @@ fun GuardDashboardScreen(
 
                         if (state.hasActiveRound && state.points.isNotEmpty()) {
                             Spacer(Modifier.height(AxzySpacing.xxl))
-                            ITSectionTitle(text = "Ruta en curso", action = {
-                                ITBadge(text = "${state.points.size} puntos", tone = Tone.Brand)
-                            })
+                            ITSectionTitle(
+                                text = "Ruta en curso",
+                                action = {
+                                    ITBadge(
+                                        text = "${state.points.count { it.verified }} de " +
+                                            "${state.points.size}",
+                                        tone = Tone.Brand,
+                                        dot = true,
+                                    )
+                                },
+                            )
                             Spacer(Modifier.height(AxzySpacing.sm))
+
+                            val nextId = state.points.firstOrNull { !it.verified }?.locationId
                             state.points.forEach { point ->
-                                PointRow(point = point, onClick = {
-                                    state.activeRoundId?.let { id -> onOpenCheck(id, point.locationId) }
-                                })
+                                PointRow(
+                                    point = point,
+                                    isNext = point.locationId == nextId,
+                                    onClick = {
+                                        state.activeRoundId?.let { id ->
+                                            onOpenCheck(id, point.locationId)
+                                        }
+                                    },
+                                )
                             }
                         }
-
-                        Spacer(Modifier.height(AxzySpacing.xxl))
-
-                        ITSectionTitle(text = "Acceso")
-                        Spacer(Modifier.height(AxzySpacing.sm))
-
-                        AccessRow(
-                            title = "Historial",
-                            subtitle = "Recorridos anteriores",
-                            icon = ITIcons.Route,
-                            onClick = onOpenKardex,
-                        )
-                        AccessRow(
-                            title = "Notificaciones",
-                            subtitle = "Avisos recibidos",
-                            icon = ITIcons.Bell,
-                            onClick = onOpenNotifications,
-                        )
-                        AccessRow(
-                            title = "Mi perfil",
-                            subtitle = "Cuenta y sesión",
-                            icon = ITIcons.Person,
-                            onClick = onOpenProfile,
-                        )
-
-                        Spacer(Modifier.height(AxzySpacing.md))
-
-                        // Salir no navega: cierra la sesión. Va separado y sin
-                        // flecha, para que no se pulse por inercia al bajar la lista.
-                        AccessRow(
-                            title = "Salir",
-                            subtitle = "Cerrar sesión",
-                            icon = ITIcons.Logout,
-                            tone = Tone.Danger,
-                            onClick = onLogout,
-                        )
                     }
                 }
 
                 Spacer(Modifier.height(AxzySpacing.xxxl))
             }
         }
+    }
+
+    // Confirmación de una ruta concreta (se tocó su fila).
+    state.pendingStart?.let { route ->
+        ITConfirmDialog(
+            title = "Iniciar ruta",
+            message = "¿Iniciar «${route.title}»? Tendrás que escanear " +
+                "${pointsLabel(route.pointCount)}.",
+            confirmLabel = "Iniciar",
+            // No es una acción destructiva: el botón va en verde de marca, no en rojo.
+            tone = Tone.Brand,
+            loading = state.starting,
+            onConfirm = { onAction(GuardDashboardAction.ConfirmStart) },
+            onDismiss = { onAction(GuardDashboardAction.CancelStart) },
+        )
+    }
+
+    if (state.routePickerOpen) {
+        RoutePickerDialog(
+            routes = state.routes,
+            onPick = { onAction(GuardDashboardAction.PickRoute(it)) },
+            onDismiss = { onAction(GuardDashboardAction.DismissRoutePicker) },
+        )
     }
 
     state.panic?.let { panic ->
@@ -221,103 +236,157 @@ fun GuardDashboardScreen(
 }
 
 /**
- * Cabecera: menú, saludo, nombre y sincronizar.
+ * Cabecera de marca: saludo y nombre sobre el degradado, con menú y sincronizar.
  *
- * El saludo es dinámico ("Buenos días / Buenas tardes / Buenas noches") y sale
- * del helper compartido con el inicio del administrador: aquí estaba escrito a
- * mano y a las seis de la tarde seguía diciendo "Buenos días".
+ * Misma pieza que el inicio del administrador para que las dos apps —la del guardia
+ * y la del supervisor— se reconozcan como la misma. El saludo es dinámico
+ * ("Buenos días / Buenas tardes / Buenas noches") y sale del helper compartido.
  */
 @Composable
-private fun GuardHeader(
+private fun GuardHero(
     userName: String,
-    active: Boolean,
     onOpenMenu: () -> Unit,
     onSync: () -> Unit,
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = AxzySpacing.lg, vertical = AxzySpacing.md),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(AxzySpacing.md),
-    ) {
-        MenuButton(onClick = onOpenMenu)
-
-        ITAvatar(
-            initial = userName.ifBlank { "G" },
-            status = if (active) Tone.Success else null,
-        )
-
-        Column(modifier = Modifier.weight(1f)) {
-            ITText(
-                text = currentGreeting(),
-                color = AxzyColors.onSurfaceVariant,
-                style = AxzyType.itemMeta,
-            )
-            ITText(
-                text = userName.ifBlank { "Guardia" },
-                color = AxzyColors.onSurface,
-                style = AxzyType.cardTitle.copy(fontSize = 20.sp, lineHeight = 26.sp),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-
-        if (active) {
-            ITBadge(text = "En ruta", tone = Tone.Success, dot = true)
-        }
-
-        SyncButton(onClick = onSync)
-    }
+    ITBrandHero(
+        title = userName.ifBlank { "Guardia" },
+        subtitle = currentGreeting(),
+        compact = true,
+        actions = {
+            Row(horizontalArrangement = Arrangement.spacedBy(AxzySpacing.sm)) {
+                ITHeroIconButton(
+                    contentDescription = "Sincronizar",
+                    onClick = onSync,
+                ) {
+                    Icon(
+                        imageVector = ITIcons.Repeat,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+                ITHeroIconButton(
+                    contentDescription = "Abrir menú",
+                    onClick = onOpenMenu,
+                ) {
+                    MenuBars(tint = Color.White)
+                }
+            }
+        },
+    )
 }
 
 /**
- * Sincronizar, con icono en vez de texto.
+ * Escáner activo.
  *
- * "Sync" en inglés dentro de una app en español, y como botón ancho, competía en
- * peso con el nombre del guardia. El gesto de refrescar se entiende por el icono.
+ * El avance va **dentro** del bloque y en número ("3 de 9"), porque es la pregunta
+ * que se hace un guardia a media ruta, y debajo el nombre del punto que toca. El
+ * botón de escanear es el único elemento verde de la pantalla: es la acción que se
+ * repite cien veces por turno.
  */
 @Composable
-private fun SyncButton(onClick: () -> Unit) {
-    ITTouchableOpacity(onClick = onClick, role = Role.Button) {
-        Box(
-            modifier = Modifier
-                .size(44.dp)
-                .background(AxzyColors.surfaceVariant, AxzyShape.lg),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = ITIcons.Repeat,
-                contentDescription = "Sincronizar",
-                tint = AxzyColors.slate700,
-                modifier = Modifier.size(20.dp),
-            )
-        }
-    }
-}
+private fun ScanCard(
+    points: List<PointUi>,
+    scanning: Boolean,
+    onScan: () -> Unit,
+    onQrCode: (String) -> Unit,
+    onCloseScan: () -> Unit,
+    onEnd: () -> Unit,
+) {
+    // El escáner ocupa **la misma tarjeta**, no una capa encima ni otra pantalla:
+    // es el mismo recuadro en el que estaba el botón que se acaba de tocar.
+    if (scanning) {
+        ITFeatureCard {
+            Column(
+                modifier = Modifier.padding(AxzySpacing.lg),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(AxzySpacing.md),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(300.dp)
+                        .clip(AxzyShape.lg),
+                ) {
+                    QrScannerView(onQrCode = onQrCode, modifier = Modifier.fillMaxSize())
+                }
 
-/** Escáner activo: toca para escanear y finalizar ruta. */
-@Composable
-private fun ActiveScannerCard(onScan: () -> Unit, onEnd: () -> Unit) {
-    ITFeatureCard(height = 200.dp) {
+                ITButton(
+                    label = "Cancelar",
+                    onClick = onCloseScan,
+                    outlined = true,
+                    compact = true,
+                )
+            }
+        }
+        return
+    }
+
+    val verified = points.count { it.verified }
+    val total = points.size
+    val next = points.firstOrNull { !it.verified }
+
+    ITFeatureCard {
         Column(
+            modifier = Modifier.padding(horizontal = AxzySpacing.xl, vertical = AxzySpacing.xxl),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(AxzySpacing.md),
         ) {
-            ITFeatureBadge(size = 72.dp) {
+            ITFeatureBadge(size = 64.dp) {
                 Icon(
                     imageVector = ITIcons.Search,
                     contentDescription = null,
                     tint = AxzyColors.primary,
-                    modifier = Modifier.size(32.dp),
+                    modifier = Modifier.size(30.dp),
                 )
             }
-            ITText(
-                text = "Toca para escanear código",
-                color = Color.White,
-                style = AxzyType.cardTitle,
+
+            if (total > 0) {
+                ITText(
+                    text = "$verified de $total puntos",
+                    color = Color.White,
+                    style = AxzyType.screenTitle,
+                    textAlign = TextAlign.Center,
+                )
+
+                LinearProgressIndicator(
+                    progress = { verified.toFloat() / total.toFloat() },
+                    modifier = Modifier.fillMaxWidth(),
+                    color = AxzyColors.primary,
+                    trackColor = Color.White.copy(alpha = AxzyAlpha.onBrandSurface),
+                )
+
+                ITText(
+                    text = next?.let { "Siguiente: ${it.name}" } ?: "Ruta completa",
+                    color = Color.White.copy(alpha = AxzyAlpha.onBrandMuted),
+                    style = AxzyType.itemMeta,
+                    textAlign = TextAlign.Center,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            } else {
+                ITText(
+                    text = "Ruta en curso",
+                    color = Color.White,
+                    style = AxzyType.cardTitle,
+                    textAlign = TextAlign.Center,
+                )
+                ITText(
+                    text = "Sincroniza para ver los puntos",
+                    color = Color.White.copy(alpha = AxzyAlpha.onBrandMuted),
+                    style = AxzyType.itemMeta,
+                    textAlign = TextAlign.Center,
+                )
+            }
+
+            Spacer(Modifier.height(AxzySpacing.xs))
+
+            ITButton(
+                label = "Escanear",
+                onClick = onScan,
+                modifier = Modifier.fillMaxWidth(),
             )
-            ITButton(label = "Escanear", onClick = onScan, compact = true)
+
             ITButton(
                 label = "Finalizar ruta",
                 onClick = onEnd,
@@ -330,59 +399,66 @@ private fun ActiveScannerCard(onScan: () -> Unit, onEnd: () -> Unit) {
 }
 
 /**
- * Sin ruta activa.
+ * Sin ruta activa: las rutas asignadas, listas para empezar.
  *
- * Con rutas asignadas, se ofrece la primera para empezar. Sin ninguna, el bloque
- * deja de ser un cartel ("inicia una ruta") y pasa a decir qué falta y cómo
- * resolverlo: sincronizar.
+ * El bloque entero es pulsable —y lleva su botón— porque es la acción del turno;
+ * sin rutas se convierte en el sitio desde el que se sincroniza, que es lo único
+ * que se puede hacer entonces.
  */
 @Composable
-private fun IdleScannerCard(
+private fun StartCard(
     routes: List<RouteUi>,
-    onStartRoute: (String) -> Unit,
+    onRequestStart: () -> Unit,
+    onPickRoute: (String) -> Unit,
     onSync: () -> Unit,
 ) {
     val hasRoutes = routes.isNotEmpty()
 
     Column {
-        ITFeatureCard(height = if (hasRoutes) 140.dp else 180.dp) {
-            Column(
-                modifier = Modifier.padding(horizontal = AxzySpacing.xl),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(AxzySpacing.sm),
-            ) {
-                ITFeatureBadge(size = if (hasRoutes) 64.dp else 56.dp) {
-                    Icon(
-                        imageVector = if (hasRoutes) ITIcons.Walk else ITIcons.Route,
-                        contentDescription = null,
-                        tint = AxzyColors.primary,
-                        modifier = Modifier.size(if (hasRoutes) 30.dp else 26.dp),
-                    )
-                }
+        ITTouchableOpacity(
+            onClick = { if (hasRoutes) onRequestStart() else onSync() },
+            scaleTo = 0.98f,
+        ) {
+            // Sin botón, el bloque no necesita el alto que reservaba para él.
+            ITFeatureCard(height = 150.dp) {
+                Column(
+                    modifier = Modifier.padding(horizontal = AxzySpacing.xl),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(AxzySpacing.sm),
+                ) {
+                    ITFeatureBadge(size = if (hasRoutes) 64.dp else 56.dp) {
+                        Icon(
+                            imageVector = if (hasRoutes) ITIcons.Walk else ITIcons.Route,
+                            contentDescription = null,
+                            tint = AxzyColors.primary,
+                            modifier = Modifier.size(if (hasRoutes) 30.dp else 26.dp),
+                        )
+                    }
 
-                ITText(
-                    text = if (hasRoutes) {
-                        "Inicia una ruta para habilitar el escáner"
-                    } else {
-                        "Sin rutas asignadas"
-                    },
-                    color = Color.White,
-                    style = AxzyType.cardTitle,
-                    textAlign = TextAlign.Center,
-                )
-
-                if (!hasRoutes) {
                     ITText(
-                        text = "Sincroniza para recibir las rondas de hoy",
+                        text = if (hasRoutes) {
+                            if (routes.size == 1) "Inicia tu ruta" else "Elige tu ruta"
+                        } else {
+                            "Sin rutas asignadas"
+                        },
+                        color = Color.White,
+                        style = AxzyType.cardTitle,
+                        textAlign = TextAlign.Center,
+                    )
+
+                    // Sin botón: el bloque entero es el objetivo y el texto dice qué
+                    // pasa al tocarlo. Un botón dentro de una tarjeta pulsable son
+                    // dos zonas para la misma acción y la mitad de la gente pulsa la
+                    // que no hace nada.
+                    ITText(
+                        text = when {
+                            !hasRoutes -> "Presiona aquí para sincronizar"
+                            routes.size == 1 -> "Presiona aquí para iniciar ruta"
+                            else -> "Presiona aquí para elegir tu ruta"
+                        },
                         color = Color.White.copy(alpha = AxzyAlpha.onBrandMuted),
                         style = AxzyType.itemMeta,
                         textAlign = TextAlign.Center,
-                    )
-                    Spacer(Modifier.height(AxzySpacing.xs))
-                    ITButton(
-                        label = "Sincronizar",
-                        onClick = onSync,
-                        compact = true,
                     )
                 }
             }
@@ -393,14 +469,64 @@ private fun IdleScannerCard(
             routes.forEach { route ->
                 ITListItem(
                     title = route.title,
-                    subtitle = "${route.pointCount} puntos",
+                    subtitle = pointsLabel(route.pointCount),
                     leadingIcon = { RowIcon(ITIcons.Route, Tone.Brand) },
                     badge = { Chevron() },
-                    onClick = { onStartRoute(route.id) },
+                    onClick = { onPickRoute(route.id) },
                 )
             }
         }
     }
+}
+
+/**
+ * Selector de ruta, cuando hay más de una asignada.
+ *
+ * Se abre sólo desde el bloque del escáner: tocar una ruta de la lista ya es elegir,
+ * así que esa va directa a su confirmación.
+ */
+@Composable
+private fun RoutePickerDialog(
+    routes: List<RouteUi>,
+    onPick: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = AxzyColors.surface,
+        shape = AxzyShape.lg,
+        title = {
+            ITText(
+                text = "¿Qué ruta inicias?",
+                color = AxzyColors.onSurface,
+                style = AxzyType.cardTitle,
+            )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(AxzySpacing.sm)) {
+                routes.forEach { route ->
+                    ITListItem(
+                        title = route.title,
+                        subtitle = pointsLabel(route.pointCount),
+                        leadingIcon = { RowIcon(ITIcons.Route, Tone.Brand) },
+                        onClick = { onPick(route.id) },
+                    )
+                }
+            }
+        },
+        // El `AlertDialog` exige un botón de confirmación; aquí la confirmación es
+        // elegir una ruta, así que sólo se ofrece salir.
+        confirmButton = {},
+        dismissButton = {
+            ITButton(
+                label = "Cancelar",
+                onClick = onDismiss,
+                outlined = true,
+                compact = true,
+                tone = Tone.Neutral,
+            )
+        },
+    )
 }
 
 /** Incidencia y mantenimiento: las dos cosas que se reportan desde la calle. */
@@ -430,27 +556,6 @@ private fun QuickReports(
     }
 }
 
-/** Fila de acceso: icono, título y flecha. */
-@Composable
-private fun AccessRow(
-    title: String,
-    subtitle: String,
-    icon: ImageVector,
-    onClick: () -> Unit,
-    tone: Tone = Tone.Neutral,
-) {
-    // La flecha sólo en las filas que navegan: "Salir" cierra la sesión.
-    val trailing: (@Composable () -> Unit)? = if (tone == Tone.Danger) null else ({ Chevron() })
-
-    ITListItem(
-        title = title,
-        subtitle = subtitle,
-        leadingIcon = { RowIcon(icon, tone) },
-        badge = trailing,
-        onClick = onClick,
-    )
-}
-
 /** Icono de fila, sin recuadro. */
 @Composable
 private fun RowIcon(icon: ImageVector, tone: Tone, size: androidx.compose.ui.unit.Dp = 20.dp) {
@@ -473,27 +578,45 @@ private fun Chevron() {
     )
 }
 
-/** Punto de la ruta activa. */
+/**
+ * Punto de la ruta activa.
+ *
+ * El siguiente sin verificar va marcado: en una ruta de nueve puntos, una lista de
+ * nueve filas iguales no dice por dónde va el guardia. Los ya verificados se
+ * atenúan para que la vista caiga en lo que falta.
+ */
 @Composable
-private fun PointRow(point: PointUi, onClick: () -> Unit) {
+private fun PointRow(point: PointUi, isNext: Boolean, onClick: () -> Unit) {
     ITListItem(
         title = point.name,
-        subtitle = if (point.taskCount == 1) "1 tarea" else "${point.taskCount} tareas",
+        subtitle = when {
+            point.verified -> "Verificado"
+            isNext -> "Siguiente · ${tasksLabel(point.taskCount)}"
+            else -> tasksLabel(point.taskCount)
+        },
         avatarInitial = point.name,
         avatarStatus = if (point.verified) Tone.Success else Tone.Warning,
-        badge = if (point.verified) {
-            { ITBadge(text = "Hecho", tone = Tone.Success, dot = true) }
-        } else {
-            null
+        badge = when {
+            point.verified -> {
+                { ITBadge(text = "Hecho", tone = Tone.Success, dot = true) }
+            }
+            isNext -> {
+                { ITBadge(text = "Ahora", tone = Tone.Brand, dot = true) }
+            }
+            else -> null
         },
         onClick = onClick,
     )
 }
 
+private fun tasksLabel(count: Int): String = if (count == 1) "1 tarea" else "$count tareas"
+
+private fun pointsLabel(count: Int): String = if (count == 1) "1 punto" else "$count puntos"
+
 /** Aviso de pánico, superpuesto. */
 @Composable
 private fun PanicOverlay(title: String, message: String, onDismiss: () -> Unit) {
-    androidx.compose.material3.AlertDialog(
+    AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = AxzyColors.surface,
         shape = AxzyShape.lg,

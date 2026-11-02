@@ -76,6 +76,9 @@ class CheckReportViewModel(
             }
 
             is CheckReportAction.MediaError -> _state.update { it.copy(error = action.message) }
+            is CheckReportAction.LocationResolved -> _state.update {
+                it.copy(location = action.coordinates, locating = false)
+            }
             CheckReportAction.Submit -> submit()
         }
     }
@@ -100,8 +103,8 @@ class CheckReportViewModel(
                     locationId = locationId,
                     notes = finalNotes,
                     media = current.media.map { it.uri },
-                    latitude = null,
-                    longitude = null,
+                    latitude = current.location?.latitude,
+                    longitude = current.location?.longitude,
                     assignmentId = null,
                 )
             }.fold(

@@ -14,6 +14,8 @@ val guardDashboardPageModule: Module = module {
             kardex = get(),
             startRound = get(),
             endRound = get(),
+            closeAbandonedRound = get(),
+            matchLocation = get(),
             triggerPanicAlert = get(),
             flushPanicQueue = get(),
         )

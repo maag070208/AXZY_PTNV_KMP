@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Política de red de la build de **debug**: se permite HTTP en claro a cualquier
+  host.
+
+  Por qué a cualquier host y no a una lista: la API de desarrollo se sirve por
+  HTTP en la máquina del desarrollador, y su dirección cambia según el entorno
+  (10.0.2.2 en el emulador, la IP de LAN en un device real, 127.0.0.1 con
+  `adb reverse`, y esa IP de LAN el router la reasigna cada tanto). Enumerarlas
+  obligaba a tocar código —y a rebuild— cada vez que cambiaba una, y cuando la
+  lista se quedaba vieja el síntoma era "Sin conexión", que no dice nada.
+
+  Esta build no se publica, así que ampliar la política aquí no tiene coste. La
+  release mantiene TLS obligatorio.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

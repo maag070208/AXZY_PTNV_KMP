@@ -7,6 +7,9 @@ import kotlinx.serialization.Serializable
  * Destinos de navegación type-safe. Solo `:shared:app` conoce navegación.
  */
 @Serializable
+data object GetStartedDestination
+
+@Serializable
 data object LoginDestination
 
 @Serializable
@@ -17,9 +20,6 @@ data object GuardHomeDestination
 
 @Serializable
 data object SyncDestination
-
-@Serializable
-data class CheckScanDestination(val roundId: String)
 
 @Serializable
 data class CheckReportDestination(val roundId: String, val locationId: String)
@@ -92,6 +92,14 @@ data object BulkPrintDestination
 
 @Serializable
 data object ProfileDestination
+
+/**
+ * @param afterAuth viene del flujo de entrada (login o sesión restaurada): ofrece
+ *   continuar al inicio. Desde el menú se visita y se sale, sin botón de continuar.
+ *   Va en el destino y no en memoria para que sobreviva a que el sistema mate la app.
+ */
+@Serializable
+data class PermissionsDestination(val afterAuth: Boolean = false)
 
 @Serializable
 data object NotificationsDestination

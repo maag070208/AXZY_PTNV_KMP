@@ -23,8 +23,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.rememberDrawerState
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -80,7 +80,6 @@ fun ITNavigationDrawer(
     content: @Composable () -> Unit,
 ) {
     val drawerState = rememberDrawerState(if (isOpen) DrawerValue.Open else DrawerValue.Closed)
-    val scope = rememberCoroutineScope()
 
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -136,9 +135,18 @@ fun ITNavigationDrawer(
 
     // El estado del drawer lo controla quien lo usa; se sincroniza aquí.
     androidx.compose.runtime.LaunchedEffect(isOpen) {
-        scope.launch {
-            if (isOpen) drawerState.open() else drawerState.close()
-        }
+        if (isOpen) drawerState.open() else drawerState.close()
+    }
+
+    // ...y **de vuelta**: si el usuario lo cierra deslizando o tocando fuera, quien lo
+    // usa tiene que enterarse. Sin esto su estado se queda en `true`, el siguiente
+    // toque en la hamburguesa no cambia nada —ya estaba en true— y el menú no vuelve
+    // a abrirse en toda la sesión. Es el bug de "la hamburguesa no funciona".
+    androidx.compose.runtime.LaunchedEffect(drawerState) {
+        androidx.compose.runtime.snapshotFlow { drawerState.currentValue }
+            .collect { value ->
+                if (value == DrawerValue.Closed) onClose()
+            }
     }
 }
 

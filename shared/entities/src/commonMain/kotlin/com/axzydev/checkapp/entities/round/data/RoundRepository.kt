@@ -12,7 +12,15 @@ interface RoundRepository {
     suspend fun start(guardId: String, clientId: String?, recurringConfigurationId: String?): Round
 
     /** Finaliza la ronda localmente (`_status = updated`). */
-    suspend fun finish(roundId: String): Round?
+    /**
+     * Cierra la ronda.
+     *
+     * @param endedAt cuándo terminó **de verdad**. Sin él se usa "ahora", que es lo
+     *   correcto cuando el guardia la finaliza; al cerrar una ronda abandonada,
+     *   "ahora" sería el día en que la app se dio cuenta y quedaría con una duración
+     *   de días.
+     */
+    suspend fun finish(roundId: String, endedAt: Long? = null): Round?
 
     suspend fun inProgressByGuard(guardId: String): Round?
     suspend fun all(): List<Round>
@@ -54,9 +62,9 @@ class DefaultRoundRepository(
         )
     }
 
-    override suspend fun finish(roundId: String): Round? {
+    override suspend fun finish(roundId: String, endedAt: Long?): Round? {
         val now = timeProvider.nowEpochMillis()
-        database.roundQueries.finishRound(end_time = now, updated_at = now, id = roundId)
+        database.roundQueries.finishRound(end_time = endedAt ?: now, updated_at = now, id = roundId)
         return findById(roundId)
     }
 

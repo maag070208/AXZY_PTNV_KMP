@@ -31,6 +31,8 @@ kotlin {
             implementation(libs.compose.ui)
             implementation(libs.compose.components.resources)
             implementation(libs.qrcode.kotlin)
+            implementation(libs.compottie)
+            implementation(libs.compottie.resources)
         }
         androidMain.dependencies {
             implementation(libs.compose.uiToolingPreview)

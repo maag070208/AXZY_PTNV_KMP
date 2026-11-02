@@ -50,7 +50,6 @@ import com.axzydev.checkapp.features.syncdatabase.di.syncFeatureModule
 import com.axzydev.checkapp.features.supervision.di.supervisionModule
 import com.axzydev.checkapp.pages.checkreport.di.checkReportPageModule
 import com.axzydev.checkapp.pages.bulkprint.di.bulkPrintPageModule
-import com.axzydev.checkapp.pages.checkscan.di.checkScanPageModule
 import com.axzydev.checkapp.pages.assignments.di.assignmentsPageModule
 import com.axzydev.checkapp.pages.clients.di.clientsPageModule
 import com.axzydev.checkapp.pages.home.di.homePageModule
@@ -147,7 +146,6 @@ fun initKoin(appDeclaration: KoinAppDeclaration = {}) = startKoin {
         loginPageModule,
         syncPageModule,
         guardDashboardPageModule,
-        checkScanPageModule,
         checkReportPageModule,
         kardexPageModule,
         roundDetailPageModule,

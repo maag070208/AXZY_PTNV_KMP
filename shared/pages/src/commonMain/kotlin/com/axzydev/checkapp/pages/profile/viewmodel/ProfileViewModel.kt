@@ -3,6 +3,7 @@ package com.axzydev.checkapp.pages.profile.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.axzydev.checkapp.core.common.result.ApiResult
+import com.axzydev.checkapp.core.datastore.ThemePreference
 import com.axzydev.checkapp.entities.session.repository.SessionRepository
 import com.axzydev.checkapp.features.profile.model.ChangePasswordUseCase
 import com.axzydev.checkapp.features.profile.model.GetProfileUseCase
@@ -19,10 +20,19 @@ class ProfileViewModel(
     private val updateProfile: UpdateProfileUseCase,
     private val changePassword: ChangePasswordUseCase,
     private val sessionRepository: SessionRepository,
+    private val themePreference: ThemePreference,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(ProfileUiState())
     val state: StateFlow<ProfileUiState> = _state.asStateFlow()
+
+    init {
+        // Se observa y no se lee una vez: el tema se aplica al instante, así que el
+        // estado de la pantalla tiene que seguir el mismo flujo.
+        viewModelScope.launch {
+            themePreference.mode.collect { mode -> _state.update { it.copy(themeMode = mode) } }
+        }
+    }
 
     fun load() {
         viewModelScope.launch {
@@ -53,6 +63,7 @@ class ProfileViewModel(
             is ProfileAction.NewPassword -> _state.update { it.copy(newPassword = action.value, message = null, error = null) }
             is ProfileAction.ConfirmPassword -> _state.update { it.copy(confirmPassword = action.value, message = null, error = null) }
             ProfileAction.ChangePassword -> change()
+            is ProfileAction.SetTheme -> viewModelScope.launch { themePreference.set(action.mode) }
             ProfileAction.DismissMessage -> _state.update { it.copy(message = null, error = null) }
         }
     }
